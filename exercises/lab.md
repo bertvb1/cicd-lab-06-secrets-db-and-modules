@@ -1,204 +1,108 @@
-# Lab 06 — Multi-gateway deployments & environment promotion
+# Lab 06 — Secrets, database migrations, JAR files and third-party modules
 
-**Duration:** ~180 minutes (09:00 – 12:00, Day 4 morning)
+**Day 4 · morning session.** Four things every real Ignition deployment carries
+that the pipeline doesn't handle yet: secrets, the database schema, third-party
+modules and JAR files. The Wilms and Proferro production repos are the working
+references throughout.
 
-* 09:00 – 10:00 — Teaching: multi-gateway topologies, promotion, config scopes (`slides/teaching.html`)
-* 10:00 – 11:00 — We do together (instructor drives, everyone follows)
-* 11:00 – 12:00 — You do (breakout rooms) — `slides/assignment.html`
-* 12:00 — wrap-up & handoff to Day 4 afternoon (secrets — Lab 07)
+**Duration:** ~3 hours
 
-<!-- TODO(instructors): confirm block letters (assumed E = promotion, F = config options)
-     and align with labs 04/05 READMEs. -->
+* 60 min teaching ([`slides/teaching.html`](../slides/teaching.html))
+* 45–60 min we-do (demos below, woven into the teaching)
+* 60 min you-do ([`slides/assignment.html`](../slides/assignment.html) mirrors this file)
+* Debrief
+
+<!-- TODO(infra): the lab repo scaffolding (compose stack, secrets/ dir,
+     db-migration/ dir, scripts/migrate.sh, spare .modl files, deploy.yml
+     skeleton) is not built yet. The exercises below define the target. -->
 
 ## Goal
 
 You should leave this lab able to:
 
-- Sketch the promotion pipeline **local → dev → test → prod** and say precisely what moves a build from each stage to the next (auto on green, release branch, human approval).
-- Explain **build-once / promote-many** across three deployed stages, and *prove* it by comparing image digests on dev, test, and prod.
-- Add a **new environment** (test) to an existing pipeline: compose service, database, workflow, GitHub environment.
-- Put a **human approval gate** in front of prod using GitHub environment required reviewers — with zero workflow changes.
-- Use **Ignition 8.3 config scopes** deliberately: explain the `external → core → <env>` inheritance chain, read `config-mode.json`, and build a `tst` overlay that redirects the DB connection.
-- Classify any configuration value into **core / per-env overlay / secret** and defend the choice.
-- (Stretch) Fan a release out to a fleet of gateways with a GitHub Actions **matrix**, and roll the fleet back.
+- Sort configuration into **public / per-environment / secret**, and say where each kind lives
+- Explain why a secret that has ever been pushed is **burned** — the fix is *rotate*, not *delete*
+- Climb the secrets ladder: `.env` + Compose interpolation → **file-based secrets** (`/run/secrets/`) → Ignition 8.3 secret providers (embedded vs **referenced**)
+- Wire the whole path: **GitHub secret → secret file written by the deploy workflow → file-type secret provider → referenced secret in gateway config** (the Wilms production pattern)
+- Name the alternative: committed **ciphertexts with shared encryption keys**, managed with the 8.3 secrets-management key CLI tool (`ignition-secrets-tool.sh`)
+- Explain why `db-init/` is bootstrap, not deployment
+- Write a schema change as a **golang-migrate up/down pair** (`0002_name.up.sql` / `.down.sql`, like the Proferro repo), apply it with `migrate up`, and read the `schema_migrations` ledger
+- Wire a migrate step into `deploy.yml` **before** the ship step, and say why the order matters
+- Deploy a **third-party module**: committed `.modl`, external-modules folder flag, headless license/cert acceptance in `modules.json`
+- Say where the two kinds of **JAR** live: JDBC drivers as 8.3 config resources (inside the config tree), library JARs on the gateway classpath
 
 ## Pre-flight
 
 ```bash
-cp .env.example .env      # fill in RUNNER_REPO_URL + RUNNER_GITHUB_PAT (your fork!)
-scripts/setup.sh          # TODO(infra): script not built yet — brings up local/dev/test/prod + DB + runner
-scripts/build-image.sh    # you'll promote this image during the lab
+cp .env.example .env
+scripts/setup.sh          # idempotent — safe if the stack is already up
+scripts/validate.sh       # green before you start
 ```
 
-You'll need the same fork + PAT + GHCR setup as Lab 05 (see [`README.md`](../README.md#prerequisites)). If you finished Lab 05, this will feel familiar — that's the point.
-
-Read ahead if you like: [`docs/multi-gateway-promotion-pattern.md`](../docs/multi-gateway-promotion-pattern.md).
-
----
-
-## Warm-up (together, ~10 min)
-
-Read-only spelunking on the freshly started stack. Everything you find here is the raw material for both parts.
-
-### Warm-up 1 — find the scope machinery you've been using all week
-
-1. `ls services/config/resources/` — you'll see `external/`, `core/`, `loc/`, `dev/`, `prd/`. Note **there is no `tst/`** — that's yours to build in Part 2.
-2. `cat services/config/resources/dev/config-mode.json` — find the `parent` field. Follow the chain: `dev → core → external`. Write the chain in `NOTES.local.md`.
-3. Find where each environment's database is decided:
-   ```bash
-   grep -r "connectURL" services/config/resources/*/ignition/database-connection/
-   ```
-   Same connection *name*, different URL per scope. That's the whole trick.
-4. Which scope does each gateway boot with?
-   ```bash
-   docker inspect lab06-ignition-dev  --format '{{ .Config.Cmd }}'   # look for -Dignition.config.mode=…
-   docker inspect lab06-ignition-prod --format '{{ .Config.Cmd }}'
-   ```
-
-### Warm-up 2 — establish the baseline
-
-1. What image is each gateway running right now?
-   ```bash
-   for gw in dev test prod; do
-     echo "$gw → $(docker inspect -f '{{ .Config.Image }}' lab06-ignition-$gw 2>/dev/null || echo 'not running')"
-   done
-   ```
-2. Note in `NOTES.local.md`: which gateways run the base (empty) image, and which — if any — already run a built one. Everything you do in Part 1 changes this answer.
+Parts 1C and 2B need your fork with Actions enabled (same setup as Lab 04): the
+pipeline is what writes the secret files and runs the migrations.
 
 ---
 
-## Part 1 (Block E) — Stand up the test stage & promote through gates
+## We-do (instructor demos)
 
-**~30 min solo.** The pipeline exists for dev and prod (Lab 05's shape). You add the middle stage and the gate.
+### Demo 1 — a leak is forever
 
-### 1.1 — Bring up the test gateway
+1. Commit a fake API key on a branch, push, then "remove" it in a follow-up commit.
+2. `git log -p` / GitHub UI: the key is still perfectly readable in history.
+3. The real-world response: **rotate the credential**, then (optionally) scrub history — and why scrubbing alone is never enough on a shared remote.
 
-<!-- TODO(infra): compose ships with ignition-test scaffolded; confirm whether it's commented out
-     (students uncomment) or up-from-setup (students only verify). Steps below assume "verify". -->
+### Demo 2 — the secrets ladder, on the Wilms repo
 
-1. `docker compose ps` — confirm `lab06-ignition-test` is up and healthy on http://localhost:8091.
-2. Confirm it boots with `-Dignition.config.mode=tst` (docker inspect, as in the warm-up).
-3. Confirm the `ignition_tst` database exists:
-   ```bash
-   docker exec lab06-timescaledb psql -U ignition -l | grep ignition_
-   ```
-4. Log in to :8091 — it's an **empty gateway on the base image**. Deploying something onto it is the next step.
+1. The `.env` → Compose interpolation rung and where it leaks: `docker inspect`, `docker compose config`, process env.
+2. The Wilms setup live: `secrets/` with committed dummy values for local dev, the `WilmsSecrets` file-type provider, a DB connection whose password is `{"type": "Referenced", "data": {"providerName": "WilmsSecrets", "secretName": "MSSQL_PASSWORD"}}`, and the `${ENV:NAME}` placeholders in the core collection that the boot script renders to files (umask + chmod **before** the value lands).
+3. The infra handoff: `docs/infra-env-vars-rabbitmq-seq.md` — the table of env vars the infra team fills per environment.
 
-### 1.2 — Ship to dev (the Lab 05 muscle memory)
+### Demo 3 — migrations, live on the Proferro repo
 
-1. Branch `feature/...` off `develop`, make a visible change to the example project (e.g. edit a Perspective view), PR into `develop`, merge.
-2. `deploy.yml` builds + pushes `:sha-<short>` + `:dev` and recreates **dev**. Verify the change on :8089.
+1. `db-init/` recap: rename the volume → SQL runs; existing volume → it doesn't. Bootstrap, not deployment.
+2. The `db-migration/migrate/` folder: 4-digit paired files (`0001_….up.sql`/`.down.sql`), `docs/MIGRATIONS.md` rules ("always pairs", "never edit deployed migrations"), `migrate.sh` running golang-migrate in Docker, the `schema_migrations` table.
+3. The pipeline steps in `.azure/pipelines.yml` — and the two flaws worth spotting together: migrations run **after** the scan, with `continueOnError: true`. What can go wrong?
 
-### 1.3 — Promote to test with a release branch
+### Demo 4 — modules and JARs, in both repos
 
-1. Cut the freeze point:
-   ```bash
-   git checkout develop && git pull
-   git checkout -b release/1.0
-   git push -u origin release/1.0
-   ```
-2. `promote.yml` fires on the `release/**` push: **no build** — it re-tags `:dev` → `:test` and recreates the **test** gateway from it.
-3. Verify your change is live on :8091, then prove the promotion:
-   ```bash
-   docker inspect -f '{{ index .RepoDigests 0 }}' lab06-ignition-dev
-   docker inspect -f '{{ index .RepoDigests 0 }}' lab06-ignition-test
-   ```
-   Same digest → same bytes. Test is now validating *exactly* what dev ran.
-4. Meanwhile `develop` is free to move on — merge another small feature into `develop` and watch **dev change while test stays frozen**. Write down why that separation matters.
+1. Proferro `third-party-modules/it|ot/` and the copy step to the gateway host; Wilms `modules/ignition/` as a COPY layer.
+2. Headless acceptance: `ACCEPT_MODULE_LICENSES` / `ACCEPT_MODULE_CERTS` env vars, and `modules.json` entries with `certFingerprint` + `licenseAgreementHash`.
+3. The JDBC driver JAR living **inside** the 8.3 config tree (`database-driver/PostgreSQL/postgresql-42.7.2.jar` next to its `config.json`), vs Wilms' library JARs (`modules/jar/` → `lib/core/gateway/`) with pinned dependencies and a README recording where each JAR came from.
 
-### 1.4 — Gate prod behind a human
+## You do (breakout rooms)
 
-1. In your fork: *Settings → Environments → `lab-gateway-prod` → Required reviewers* → add yourself.
-2. Release the Git Flow way:
-   ```bash
-   git checkout main && git pull
-   git merge --no-ff release/1.0 -m "Release v1.0.0"
-   git push origin main
-   git tag v1.0.0 && git push origin v1.0.0
-   ```
-3. `release.yml` fires: `promote` re-tags **`:test`** (not `:dev`! dev has already drifted) → `:v1.0.0` + `:prod`… and then the `deploy` job **waits**.
-4. Find the yellow "Review pending deployments" banner in the workflow run. Approve it. Watch prod recreate.
-5. Prove the whole chain — all three digests:
-   ```bash
-   for gw in test prod; do docker inspect -f '{{ index .RepoDigests 0 }}' lab06-ignition-$gw; done
-   ```
-   test ≡ prod. (dev may differ — it moved on in 1.3.4. Explain why that's correct.)
+Follows [`slides/assignment.html`](../slides/assignment.html) 1:1.
 
-**Gate ✅:** test and prod report the same image digest, and your workflow run shows a manual approval on the prod deploy. Don't start Part 2 until this is true.
+### Warm-up 1 — secret triage
+Grep your clone for candidate secrets; sort into public / per-environment / secret in `NOTES.local.md`; check `.gitignore` covers `.env` and `secrets/`; run the secret scan in `scripts/validate.sh` for a zero-findings baseline. <!-- TODO(infra): gitleaks step in validate.sh -->
 
----
+### Warm-up 2 — leak & rotate drill
+Repeat Demo 1 yourself on a scratch branch; convince yourself the "deleted" secret is still in history; write the two-line incident response (rotate → then scrub) in `NOTES.local.md`; delete the branch, never push it.
 
-## Part 2 (Block F) — Configuration options explored
+### Part 1 — move one credential up the secrets ladder (±20 min)
+- **1A.** Postgres password: compose `environment:` → a secret file mounted at `/run/secrets/postgres_password` (`POSTGRES_PASSWORD_FILE`). Keep the same value — Postgres only sets it on first volume init.
+- **1B.** Create a **file-type secret provider** on the local gateway; re-point the DB connection at the **referenced** secret; grep the exported config to prove no value leaked.
+- **1C.** Add `POSTGRES_PASSWORD` as a GitHub environment secret and add the **Materialize secret files** step to `deploy.yml` (umask 177 + `printf`, before `compose up`).
+- **Gate:** `scripts/validate.sh` green, secret scan zero findings, and you can narrate: GitHub secret → file → provider → reference.
 
-**~30 min solo.** Same artifact everywhere — so where do the differences live? You build one and classify the rest.
+### Part 2 — ship a schema change as a migration (±20 min)
+- **2A.** Write `db-migration/migrate/0002_add_downtime_log.up.sql` **and** `.down.sql`; apply with `scripts/migrate.sh up`; read `schema_migrations` (version 2, not dirty); re-run to see idempotency. Note: golang-migrate will NOT stop you editing an applied migration — that discipline is a written rule (Proferro `docs/MIGRATIONS.md`), not a tool feature.
+- **2B.** Add the migrate step to `deploy.yml` **before** the ship step (and not `continueOnError`); PR with the migration **and** the screen that reads the new table together; watch the run migrate dev before shipping; prove it in dev's `schema_migrations`.
+- **Gate:** a green deploy run whose log shows migrate → ship → scan → verify, and dev's ledger at version 2.
 
-### 2.1 — Build the `tst` scope overlay
+### Part 3 — deploy a module and a JDBC driver (±20 min)
+- **3A.** Enable a spare `.modl` from `third-party-modules/` in `services/modules.json` with `certFingerprint` + `licenseAgreementHash` (values in this file); ship through the pipeline; verify Config → Modules shows it **Running** with no hands on the gateway. Negative test: remove the acceptance hash, redeploy, observe, restore. <!-- TODO(infra): pick the spare module and record its fingerprint + hash here -->
+- **3B.** `find services/config -name "*.jar"` — find the JDBC driver inside the config tree, read its `resource.json`, and write down how it reaches the gateway (the ordinary config ship step). Contrast with Wilms' classpath JARs.
+- **Gate:** module Running on dev, hands-free.
 
-Right now the test gateway resolves config as `tst → core → external`, but the `tst/` folder doesn't exist — so it silently gets **core's** DB connection (pointing at the wrong database). Fix that:
+### Stretch (optional)
+- **S1.** Committed ciphertexts done safely: `ignition-secrets-tool.sh` root key + KEK under `data/config/ignition/keys/`; share the keys between two gateways; check a ciphertext created on one decrypts on the other. What is "the secret" now, and who owns it?
+- **S2.** Expand-contract rename: `0003` add + backfill, screen switch, `0004` drop.
+- **S3.** Add a `gitleaks` job to `ci.yml` (`fetch-depth: 0` — the scanner must see history); test with a fake-key PR.
 
-1. Create the scope descriptor `services/config/resources/tst/config-mode.json`:
-   ```json
-   {
-     "title": "tst",
-     "description": "tst",
-     "enabled": true,
-     "inheritable": true,
-     "parent": "core"
-   }
-   ```
-2. Create the DB override — copy `dev/ignition/database-connection/TimescaleDB/` to `tst/ignition/database-connection/TimescaleDB/` and change the `connectURL` database to `ignition_tst`.
-   <!-- [VERIFY] the copied config.json contains an encrypted password blob from the dev gateway's
-        system — confirm it decrypts/re-encrypts cleanly on another gateway, or document the
-        password-reset step needed. This is a known sharp edge to test before the course. -->
-3. Ship it **through the pipeline** — this is the punchline of the whole lab:
-   feature branch → PR → `develop` (dev rebuilds; dev *ignores* `tst/` because it boots `mode=dev`) → push to `release/1.1` → test recreates and now resolves `tst → core`.
-4. Verify on :8091 (*Config → Databases → Connections*): the TimescaleDB connection now points at `ignition_tst`. The **same image** on dev still points at `ignition_dev`. One artifact, per-gateway behavior.
+## Debrief
 
-### 2.2 — The config inventory drill
-
-In `NOTES.local.md`, classify each of these into **core** (same everywhere, in git), **overlay** (per-env, in git), or **secret** (per-env, NOT in git) — and note *why*:
-
-| # | Setting |
-|---|---|
-| 1 | Database `connectURL` |
-| 2 | Database password |
-| 3 | Historian provider settings |
-| 4 | OPC UA server endpoint for the plant PLCs |
-| 5 | Identity provider (IdP) configuration |
-| 6 | Perspective session timeout |
-| 7 | Gateway admin password |
-| 8 | Alarm notification SMTP server |
-| 9 | Which modules are enabled (`modules.json`) |
-| 10 | Gateway memory limit (`-m 1024`) |
-
-Then compare with [`docs/multi-gateway-promotion-pattern.md`](../docs/multi-gateway-promotion-pattern.md#the-three-buckets) — and argue with it where you disagree. (Several of these are genuinely debatable; #10 isn't even config-scope territory — it's compose/boot-time. Knowing *which layer* a knob belongs to is the skill.)
-
-### 2.3 — What we deliberately did NOT solve
-
-Look at the `password` block inside any `database-connection/config.json`. It's an encrypted blob, tied to the gateway that wrote it — and it's sitting in git. Write down (a) why this is not OK for a real customer, (b) what you'd want instead. That's Day 4 afternoon (Lab 07 — secrets management).
-
----
-
-## Definition of done
-
-- [ ] The test gateway is up on :8091 and boots with config mode `tst`.
-- [ ] A push to `release/1.0` promoted the `:dev` image to test **without rebuilding** (digests match).
-- [ ] The `v1.0.0` release **waited for your approval** before recreating prod, and promoted from `:test`.
-- [ ] You showed dev drifting ahead while test stayed frozen, and can explain why prod promotes from `:test` not `:dev`.
-- [ ] The `tst/` scope overlay exists, shipped through the pipeline, and the test gateway's DB connection points at `ignition_tst`.
-- [ ] Your config inventory (2.2) is written up in `NOTES.local.md` with reasons.
-
-## Stretch challenges `[OPTIONAL]`
-
-- **Fan-out.** `docker compose --profile fanout up -d` to start `prod-b` (:8092). Extend `release.yml`'s deploy job with a matrix over `[prod, prod-b]`, re-run the release, and verify **both** gateways report the same digest. <!-- TODO(infra): matrix stub in release.yml, prod-b service under the fanout profile -->
-- **Canary.** Set `max-parallel: 1` and order the matrix `[prod-b, prod]` so prod-b takes the release first; fail its healthcheck on purpose (stop the DB?) and watch the rollout halt before touching prod.
-- **Fleet rollback.** Ship a `v1.1.0`, then use `release.yml`'s `workflow_dispatch` with `v1.0.0` to roll the whole fleet back. Time it.
-- **Env indicator.** Add a Perspective view that shows which config mode / database the gateway is running, so promotion is visible in the browser without docker commands. <!-- [VERIFY] cleanest way to read the active config mode from a view -->
-
-## Debrief (10 min)
-
-- Prod promotes from `:test`, not `:dev`, and not the tagged commit SHA. Walk the failure that each of the other two choices allows.
-- The release branch froze test while develop moved on. What team-size / release-cadence threshold makes this worth the ceremony? When would you skip the test stage entirely?
-- One image carries *every* environment's config overlay. What's in that image that a hostile reader of your registry would enjoy? (Bridge to Lab 07.)
-- The approval gate is one person clicking a button. What would you *actually* want checked before prod at a customer site — and which of those checks can be a workflow job instead of a human?
-- We scaled stages vertically (dev→test→prod). The matrix stretch scaled horizontally (prod×N). Which real topologies at *your* plants map to which?
+- One surprise, one question, per room.
+- Which secrets approach fits your plant: references + files, or ciphertexts + shared keys? What does each make easy, and what does each make dangerous?
+- The Proferro ordering question: migrations after the scan, `continueOnError: true` — what incident does that setup eventually produce?

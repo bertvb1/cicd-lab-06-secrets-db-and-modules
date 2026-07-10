@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lab 06: Teaching: Multi-gateway deploys &amp; environment promotion</title>
+<title>Lab 06 Teaching: Secrets, database migrations, JAR files and third-party modules</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -26,6 +26,7 @@
   --txt-faint:#94a2b4;
   --good:#16a34a; --good-soft:#e3f6ea;
   --warn:#d97706; --warn-soft:#fbf0db;
+  --bad:#dc2626; --bad-soft:#fdeaea;
   --teal:#3bbdb4;
   --teal-l:#5fd6cd;
   --shadow:0 1px 2px rgba(14,27,46,.05),0 10px 30px -16px rgba(14,27,46,.28);
@@ -95,6 +96,8 @@ body{
 .checks li b{color:var(--txt);font-weight:700}
 .ck{flex:none;width:22px;height:22px;border-radius:7px;background:var(--peri-soft);display:grid;place-items:center;margin-top:1px}
 .ck svg{width:12px;height:12px;color:var(--blue)}
+.ck.bad{background:var(--bad-soft)}
+.ck.bad svg{color:var(--bad)}
 .dark .checks li{color:#c4cfde}
 .dark .checks li b{color:#fff}
 .dark .ck{background:rgba(147,169,240,.18)}
@@ -106,79 +109,20 @@ body{
 .callout p b{color:var(--txt);font-weight:700}
 .callout code{font-family:'IBM Plex Mono';font-size:13px;color:var(--blue-d)}
 
-/* code block (dark panel, from assignment deck) */
-.code{background:var(--navy);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);margin-top:6px;overflow:auto}
-.code pre{font-family:'IBM Plex Mono';font-size:13.5px;color:#dbe6f5;line-height:1.65}
-.code .cm{color:#7d93ad}
-.code .cmd2{color:var(--peri2)}
-.inlinecode{font-family:'IBM Plex Mono';font-size:13.5px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 7px;color:var(--blue-d)}
-
-/* comparison table */
-.tbl{width:100%;border-collapse:separate;border-spacing:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);margin-top:10px}
-.tbl th{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--txt-faint);font-weight:700;text-align:left;padding:13px 18px;border-bottom:1px solid var(--line2);background:var(--panel2)}
-.tbl td{font-size:13.5px;color:var(--txt-dim);line-height:1.45;padding:12px 18px;border-bottom:1px solid var(--line)}
-.tbl tr:last-child td{border-bottom:none}
-.tbl td b{color:var(--txt);font-weight:700}
-.tbl td code{font-family:'IBM Plex Mono';font-size:12.5px;color:var(--blue-d)}
-.tbl .bad{color:#b4552e}
-.tbl .goodc{color:var(--good)}
-
-/* topology cards */
-.topo{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:10px}
-.tcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
-.tcard:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--blue)}
-.tcard.t2:before{background:var(--teal)}
-.tcard.t3:before{background:var(--peri)}
-.tcard.t4:before{background:var(--warn)}
-.tcard .pn{font-family:'IBM Plex Mono';font-size:11px;color:var(--txt-faint);font-weight:600;letter-spacing:1px}
-.tcard h4{font-size:17px;font-weight:800;letter-spacing:-.3px;margin:7px 0 4px;color:var(--navy)}
-.tcard p{font-size:12.5px;color:var(--txt-dim);line-height:1.5;margin-top:6px}
-.tcard .mini{font-family:'IBM Plex Mono';font-size:11px;color:var(--blue);margin-top:10px}
-
-/* pipeline visual */
-.pipe-row{display:flex;align-items:stretch;gap:0;margin-top:18px}
-.stagebox{flex:1;background:var(--panel);border:1.5px solid var(--line2);border-radius:14px;padding:16px 14px;box-shadow:var(--shadow);text-align:center;position:relative}
-.stagebox .sn{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--txt-faint);font-weight:600}
-.stagebox h4{font-size:20px;font-weight:800;letter-spacing:-.4px;margin-top:4px;color:var(--navy)}
-.stagebox .tag{display:inline-block;font-family:'IBM Plex Mono';font-size:11.5px;font-weight:600;color:#fff;background:var(--navy);padding:4px 9px;border-radius:7px;margin-top:9px}
-.stagebox .scope{font-family:'IBM Plex Mono';font-size:11px;color:var(--teal);margin-top:8px}
-.stagebox.hot{border-color:var(--blue);box-shadow:0 0 0 3px var(--peri-soft),var(--shadow)}
-.pipe-arr{flex:none;width:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
-.pipe-arr .a{font-size:22px;color:var(--blue);font-family:'IBM Plex Mono'}
-.pipe-arr .l{font-size:10px;letter-spacing:.4px;text-transform:uppercase;font-weight:700;color:var(--txt-faint);text-align:center;line-height:1.3}
-.pipe-arr.gate .a{color:var(--warn)}
-.pipe-arr.gate .l{color:var(--warn)}
-
-/* scope inheritance chain */
-.chain{display:flex;align-items:center;gap:14px;margin-top:16px;flex-wrap:wrap}
-.chain .cnode{background:var(--panel);border:1.5px solid var(--line2);border-radius:12px;padding:12px 18px;box-shadow:var(--shadow);text-align:center}
-.chain .cnode .t{font-family:'IBM Plex Mono';font-size:14px;font-weight:600;color:var(--navy)}
-.chain .cnode .s{font-size:11px;color:var(--txt-faint);margin-top:3px}
-.chain .cnode.env{border-color:var(--teal)}
-.chain .cnode.env .t{color:var(--teal)}
-.chain .carr{font-size:20px;color:var(--txt-faint);font-family:'IBM Plex Mono'}
-
-/* three buckets */
-.buckets{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:12px}
-.bucket{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);border-top:5px solid var(--blue)}
-.bucket.b2{border-top-color:var(--teal)}
-.bucket.b3{border-top-color:var(--warn)}
-.bucket .bh{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:var(--blue);margin-bottom:8px}
-.bucket.b2 .bh{color:var(--teal)}
-.bucket.b3 .bh{color:var(--warn)}
-.bucket h4{font-size:17px;font-weight:800;letter-spacing:-.3px;color:var(--navy)}
-.bucket p{font-size:12.5px;color:var(--txt-dim);line-height:1.5;margin-top:8px}
-.bucket .where{font-family:'IBM Plex Mono';font-size:11px;color:var(--blue-d);margin-top:10px}
-.bucket ul{margin-top:9px;display:flex;flex-direction:column;gap:5px}
-.bucket li{list-style:none;font-size:12px;color:var(--txt-dim);display:flex;gap:8px}
-.bucket li:before{content:"·";color:var(--blue);font-weight:800}
-
-/* what-does grid (from lab 1) */
 .does{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
 .does .hd{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--blue);font-weight:700;margin-bottom:12px}
 .does ul{display:flex;flex-direction:column;gap:9px}
 .does li{list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:14px;color:var(--txt);line-height:1.4}
 .does li .d{flex:none;width:7px;height:7px;border-radius:50%;background:var(--blue);margin-top:7px}
+.does li code{font-family:'IBM Plex Mono';font-size:12.5px;color:var(--blue-d)}
+
+/* code block */
+.code{background:var(--navy);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);margin-top:6px;overflow:auto}
+.code pre{font-family:'IBM Plex Mono';font-size:13.5px;color:#dbe6f5;line-height:1.7}
+.code .cm{color:#7d93ad}
+.code .cmd2{color:var(--peri2)}
+.code .red{color:#f08a8a}
+.code .grn{color:#7ed8a2}
 
 .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:var(--txt-faint);padding-top:24px}
 .dark .foot{color:rgba(255,255,255,.45)}
@@ -197,11 +141,91 @@ body{
 .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:14px;margin-top:auto;border-top:1px solid rgba(255,255,255,.08)}
 .controls .lead-step{font-size:13.5px;color:#c4cfde;margin-right:auto;max-width:60ch;line-height:1.45}
 .controls .lead-step b{color:#fff}
+.slide:not(.dark) .controls{border-top-color:var(--line)}
+.slide:not(.dark) .controls .lead-step{color:var(--txt-dim)}
+.slide:not(.dark) .controls .lead-step b{color:var(--txt)}
 .btn{font-family:'IBM Plex Mono';font-size:13px;font-weight:600;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.04);color:#dbe4f0;padding:9px 16px;border-radius:10px;cursor:pointer;transition:.15s}
 .btn:hover:not(:disabled){background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.4)}
 .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
 .btn.primary:hover:not(:disabled){background:var(--blue-d)}
 .btn:disabled{opacity:.32;cursor:default}
+.slide:not(.dark) .btn{border-color:var(--line2);background:var(--panel);color:var(--txt-dim)}
+.slide:not(.dark) .btn:hover:not(:disabled){background:var(--panel2);border-color:var(--txt-faint)}
+.slide:not(.dark) .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+
+/* ===== lab-07 specific visuals ===== */
+
+/* three kinds of config cards */
+.kinds{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:8px}
+.kind{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.kind:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--good)}
+.kind.k2:before{background:var(--blue)}
+.kind.k3:before{background:var(--bad)}
+.kind h4{font-size:17px;font-weight:800;letter-spacing:-.3px;margin-bottom:4px}
+.kind .kt{font-family:'IBM Plex Mono';font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--txt-faint);font-weight:600}
+.kind p{font-size:13px;color:var(--txt-dim);line-height:1.5;margin-top:8px}
+.kind p code{font-family:'IBM Plex Mono';font-size:12px;color:var(--blue-d)}
+.kind .where{margin-top:12px;font-family:'IBM Plex Mono';font-size:11.5px;font-weight:600;color:var(--txt)}
+.kind .where b{color:var(--good)}
+.kind.k2 .where b{color:var(--blue)}
+.kind.k3 .where b{color:var(--bad)}
+
+/* secrets ladder */
+.ladder{display:flex;flex-direction:column-reverse;gap:10px;margin-top:10px;max-width:960px}
+.rung{display:grid;grid-template-columns:64px 1.05fr 1fr;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px 18px;box-shadow:var(--shadow)}
+.rung .rn{font-family:'IBM Plex Mono';font-size:13px;font-weight:700;color:#fff;background:var(--txt-faint);border-radius:9px;padding:6px 0;text-align:center}
+.rung.r0 .rn{background:var(--bad)}
+.rung.r1 .rn{background:var(--warn)}
+.rung.r2 .rn{background:var(--blue)}
+.rung.r3 .rn{background:var(--good)}
+.rung.r4 .rn{background:var(--navy)}
+.rung .rt{font-size:14.5px;font-weight:700;color:var(--txt)}
+.rung .rt span{display:block;font-weight:500;font-size:12.5px;color:var(--txt-dim);margin-top:2px}
+.rung .leak{font-size:12.5px;color:var(--txt-dim);line-height:1.45}
+.rung .leak b{color:var(--bad);font-weight:700}
+.rung .leak b.ok{color:var(--good)}
+.rung .rt code,.rung .leak code{font-family:'IBM Plex Mono';font-size:12px;color:var(--blue-d)}
+
+/* portability diagram (one config → three gateways) */
+.port{display:grid;grid-template-columns:1fr 60px 1.6fr;gap:10px;align-items:center;margin-top:16px}
+.gwrow{display:flex;flex-direction:column;gap:12px}
+.gw{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px 16px;box-shadow:var(--shadow)}
+.gw .tag{font-family:'IBM Plex Mono';font-size:12px;font-weight:700;color:#fff;background:var(--teal);padding:5px 10px;border-radius:8px}
+.gw.dev .tag{background:var(--blue)}
+.gw.prod .tag{background:var(--navy)}
+.gw .v{font-family:'IBM Plex Mono';font-size:12.5px;color:var(--txt-dim)}
+.gw .v b{color:var(--txt)}
+.bigarr{font-family:'IBM Plex Mono';font-size:30px;color:var(--blue);text-align:center}
+.filecard{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.filecard .fh{padding:10px 16px;border-bottom:1px solid var(--line);font-family:'IBM Plex Mono';font-size:12px;font-weight:600;color:var(--blue);display:flex;align-items:center;gap:8px}
+.filecard pre{padding:14px 16px;font-family:'IBM Plex Mono';font-size:12px;color:var(--txt);line-height:1.6;white-space:pre-wrap}
+.filecard pre .hl{color:var(--blue-d);font-weight:600}
+.filecard pre .cm{color:var(--txt-faint)}
+
+/* migration ledger visual */
+.mig{display:grid;grid-template-columns:1fr auto 1.25fr;gap:26px;align-items:start;margin-top:14px}
+.mig .pipe{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--txt-faint);padding-top:40px}
+.mig .pipe .arr{font-size:26px;font-family:'IBM Plex Mono';color:var(--blue)}
+.mig .pipe .cap{font-size:11px;letter-spacing:.5px;text-transform:uppercase;font-weight:600;text-align:center}
+.store{background:var(--panel2);border:1px dashed var(--line2);border-radius:14px;padding:16px}
+.store .sh{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--txt-faint);font-weight:600;margin-bottom:12px}
+.entry{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:9px;box-shadow:var(--shadow)}
+.entry:last-child{margin-bottom:0}
+.entry .key{font-family:'IBM Plex Mono';font-size:12px;font-weight:700;color:#fff;background:var(--blue);padding:5px 9px;border-radius:7px}
+.entry .key.g{background:var(--good)}
+.entry .val{font-size:12.5px;color:var(--txt-dim);line-height:1.4}
+.entry .val b{color:var(--txt);font-weight:700}
+.migfiles{display:flex;flex-direction:column;gap:10px}
+
+/* pipeline flow */
+.flow{display:flex;align-items:stretch;gap:0;margin-top:18px;flex-wrap:wrap}
+.fstep{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 16px;box-shadow:var(--shadow);min-width:150px;flex:1}
+.fstep .fn{font-family:'IBM Plex Mono';font-size:10.5px;color:var(--txt-faint);font-weight:600;letter-spacing:.8px;text-transform:uppercase}
+.fstep h5{font-size:14.5px;font-weight:800;margin-top:5px;letter-spacing:-.2px}
+.fstep p{font-size:11.5px;color:var(--txt-dim);line-height:1.45;margin-top:5px}
+.fstep.hot{border-color:var(--blue);border-width:2px}
+.fstep.hot h5{color:var(--blue-d)}
+.farr{align-self:center;font-family:'IBM Plex Mono';font-size:20px;color:var(--txt-faint);padding:0 8px}
 
 @media print{
   body{overflow:visible}
@@ -222,651 +246,801 @@ body{
     <div class="on-dark brandrow">
       <img class="logo-img logo-lg" src="logos/OriginalLight.png" alt="Mustry Solutions">
     </div>
-    <div class="stage on-dark">Lab 06 · 09:00-10:00</div>
+    <div class="stage on-dark">Lab 06 · Day 4 · Morning</div>
   </div>
 
   <div class="cover">
-    <div class="eyebrow">Teaching · Day 4 · 60 min</div>
-    <div class="big">Multi-gateway deploys &amp; <em>environment promotion</em>.</div>
-    <div class="sub">Day 3 gave you a pipeline that ends at one prod gateway on one machine. Real plants have a test tier, approval gates, multiple lines and sites, plus configuration that <em style="color:#fff;font-style:normal">must</em> differ between gateways running "the same" release. Today: one artifact, many gateways, and exactly one place for every difference.</div>
+    <div class="eyebrow">Teaching · 60 min · Day 4</div>
+    <div class="big">Secrets, database migrations, JAR files and <em>third-party modules</em></div>
+    <div class="sub">Four things every real Ignition deployment carries that your pipeline doesn't handle yet: the values that must <em style="color:#fff;font-style:normal">never</em> touch Git, the database schema your screens depend on, and the module and JAR binaries the gateway needs to run. We close all four, with the Wilms and Proferro production repos as our working references.</div>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Lab 06: Multi-gateway deployments</span></div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Lab 06: Secrets, migrations, modules &amp; JARs</span></div>
 </section>
 
-<!-- 2 · WHERE DAY 3 LEFT US -->
+<!-- 2 · THE TWO GAPS -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Teaching · recap</div>
+    <div class="stage">Teaching</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">01</span>
       <div>
-        <div class="title">Where Day 3 left us</div>
-        <div class="lead">You already run three gateways. You already build once and promote. Today we make both of those <b>explicit and bigger</b>.</div>
+        <div class="title">Four things your pipeline still can't handle</div>
+        <div class="lead">Labs 04 and 05 ship <b>files in Git</b> to gateways. Four things were quietly left out of the repo, on purpose, until today.</div>
       </div>
     </div>
-    <div class="split">
-      <div>
-        <table class="tbl">
-          <tr><th></th><th>Lab 04: file-based</th><th>Lab 05: image-based</th></tr>
-          <tr><td><b>Artifact</b></td><td>files in git</td><td>a versioned image</td></tr>
-          <tr><td><b>Deliver</b></td><td><code>docker cp</code> + hot scan</td><td><code>docker pull</code> + recreate</td></tr>
-          <tr><td><b>Stages</b></td><td>local → dev → prod</td><td>local → dev → prod</td></tr>
-          <tr><td><b>Promotion</b></td><td>re-deploy per env</td><td>re-tag the tested image</td></tr>
-        </table>
-      </div>
-      <div class="does">
-        <div class="hd">Two questions Day 3 never answered</div>
-        <ul>
-          <li><span class="d"></span><b>What earns a build the right to move forward?</b> Lab 05 promoted dev → prod with no stage in between and no one saying "yes".</li>
-          <li><span class="d"></span><b>What is allowed to differ between environments?</b> Dev pointed at <span class="mono">ignition_dev</span>, prod at <span class="mono">ignition_prd</span>, by magic you never touched.</li>
-        </ul>
-      </div>
-    </div>
+    <ul class="checks" style="max-width:940px">
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Gap 1: secrets.</b> The gateway's DB password, the API keys your deploy workflow scans with, the runner's PAT. They configure the system, but they <b>can't be committed</b>. Where do they live instead: locally, in Compose, in the gateway, in CI?</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Gap 2: the database.</b> Your Perspective screens read and write tables. The <b>schema</b> those screens depend on lives in a Docker volume: nothing versions it, nothing deploys it. Today it becomes files in the repo, shipped by the same pipeline.</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Gap 3: third-party modules.</b> MQTT drivers, charting modules, historians: <span class="mono">.modl</span> binaries the gateway needs at boot. Who versions them, how do they reach the gateway, and who accepts the license?</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Gap 4: JAR files.</b> JDBC drivers and Java libraries your scripts call. In 8.3 some are config resources, some sit on the gateway classpath: both have to ship with the deploy.</span></li>
+    </ul>
     <div class="callout">
-      <div class="lab" style="color:var(--blue)">Today's plan</div>
-      <p><b>Block E:</b> widen the pipe to local → dev → <b>test</b> → prod, with gates. <b>Block F:</b> open the magic box: Ignition 8.3 <b>config scopes</b>, and a framework for every per-environment knob.</p>
+      <div class="lab" style="color:var(--blue)">Builds on</div>
+      <p>Everything today extends the <b>lab 04/05 stack</b>: the local → dev → prod gateways, the <code>.env.example</code> convention, and the <code>db-init/</code> folder you've already used without looking too closely at it.</p>
     </div>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Building on Labs 04 + 05</span></div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Secrets → database → modules &amp; JARs</span></div>
 </section>
 
-<!-- 3 · WHY MORE THAN ONE GATEWAY -->
+<!-- 3 · DIVIDER: PART 1 SECRETS -->
+<section class="slide dark">
+  <div class="topbar">
+    <div class="on-dark brandrow"><img class="logo-img" src="logos/OriginalLight.png" alt="Mustry Solutions"></div>
+    <div class="stage on-dark">Part 1 · Secrets</div>
+  </div>
+  <div class="divider">
+    <div class="eyebrow">Part 1 · Secrets management</div>
+    <div class="q">What may <em>never</em> be committed?</div>
+    <div class="sub2">Git remembers everything, forever, in every clone. That's exactly what you want for code, and exactly what you don't want for a password.</div>
+  </div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>config kinds → the ladder → Ignition 8.3 native secrets</span></div>
+</section>
+
+<!-- 4 · THREE KINDS OF CONFIG -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Teaching · topologies</div>
+    <div class="stage">Part 1 · Secrets</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">02</span>
       <div>
-        <div class="title">Why more than one gateway?</div>
-        <div class="lead">Four reasons gateways multiply in the real world. The first is <b>vertical</b> (stages of trust); the other three are <b>horizontal</b> (copies of prod). Today's lab does the first deeply and the second as a stretch.</div>
+        <div class="title">Sort every value into one of three boxes</div>
+        <div class="lead">Sorting is 80% of secrets management. Every value in your project is <b>public</b>, <b>per-environment</b>, or <b>secret</b>, and each box has a different home.</div>
       </div>
     </div>
-    <div class="topo">
-      <div class="tcard">
-        <div class="pn">VERTICAL · TIERS</div>
-        <h4>Stages of trust</h4>
-        <p>dev → test → prod. Same artifact, increasing confidence. Test is where acceptance, demos and operator training happen, <b>frozen</b> while dev keeps moving.</p>
-        <div class="mini">today's main event</div>
+    <div class="kinds">
+      <div class="kind">
+        <div class="kt">Kind 1</div>
+        <h4>Public</h4>
+        <p>Port numbers, module lists, project names, timeouts, <code>modules.json</code>.</p>
+        <div class="where">→ <b>committed</b>, plain, in the repo</div>
       </div>
-      <div class="tcard t2">
-        <div class="pn">HORIZONTAL · SCALE</div>
-        <h4>Front-end / back-end</h4>
-        <p>One gateway serves Perspective sessions, another owns tags/devices/history. Deploys must hit <b>both</b> consistently.</p>
-        <div class="mini">same release, N targets</div>
+      <div class="kind k2">
+        <div class="kt">Kind 2</div>
+        <h4>Per-environment</h4>
+        <p>Gateway URLs, database <i>names</i>, container names. Same shape, different value per env.</p>
+        <div class="where">→ <b>committed defaults</b> + env vars / GitHub environment <i>variables</i></div>
       </div>
-      <div class="tcard t3">
-        <div class="pn">HORIZONTAL · SITES</div>
-        <h4>Lines &amp; sites</h4>
-        <p>Line A, line B, plant 2. Identical application, different device addresses and databases. The classic integrator fleet.</p>
-        <div class="mini">stretch: matrix fan-out</div>
+      <div class="kind k3">
+        <div class="kt">Kind 3</div>
+        <h4>Secret</h4>
+        <p>Passwords, API keys, PATs, private keys, keystores. Anyone holding the value <i>is</i> you.</p>
+        <div class="where">→ <b>never committed</b>: <code>.env</code>, Docker secrets, secret providers, GitHub <i>secrets</i></div>
       </div>
-      <div class="tcard t4">
-        <div class="pn">HORIZONTAL · EDGE</div>
-        <h4>Edge &amp; redundancy</h4>
-        <p>Edge gateways at the machine, redundant pairs for uptime. Treat a redundant pair as <b>one</b> deploy target.</p>
-        <div class="mini">mentioned, not exercised <!-- [VERIFY] keep redundancy out of scope? --></div>
-      </div>
-    </div>
-    <div class="callout">
-      <div class="lab">The common thread</div>
-      <p>Every topology multiplies the same two problems: <b>how does a build travel</b> between gateways, and <b>where do the differences live</b>. Solve those two and the topology is just arithmetic.</p>
     </div>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Vertical = trust · horizontal = copies</span></div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>public · per-environment · secret</span></div>
 </section>
 
-<!-- 4 · DIVIDER · PROMOTION -->
-<section class="slide dark">
-  <div class="topbar">
-    <div class="on-dark brandrow"><img class="logo-img" src="logos/OriginalLight.png" alt="Mustry Solutions"></div>
-    <div class="stage on-dark">Promotion</div>
-  </div>
-  <div class="divider">
-    <div class="eyebrow">Block E</div>
-    <div class="q">How does a release <em>earn</em> its way to prod?</div>
-    <div class="sub2">Not by being rebuilt. The same bytes climb the ladder (dev, test, prod) and something specific must happen at every rung.</div>
-  </div>
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>build once → promote many</span></div>
-</section>
-
-<!-- 5 · THE PROMOTION PIPELINE (interactive) -->
+<!-- 5 · A PUSHED SECRET IS A BURNED SECRET (interactive) -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Promotion · the pipeline</div>
+    <div class="stage">Part 1 · Secrets · the iron rule</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">03</span>
       <div>
-        <div class="title">The promotion pipeline</div>
-        <div class="lead">Four gateways, one image. Watch what moves it, and what <b>never</b> happens after the first build.</div>
+        <div class="title">A pushed secret is a burned secret</div>
+        <div class="lead">Lab 01 taught you commits are <b>immutable snapshots</b>. Here's the dark side of that superpower.</div>
       </div>
     </div>
 
-    <div class="pipe-row">
-      <div class="stagebox">
-        <div class="sn">authoring</div>
-        <h4>LOCAL</h4>
-        <div class="tag">bind mounts</div>
-        <div class="scope">mode=loc · :8088</div>
+    <div class="cols2">
+      <div>
+        <div class="code reveal" data-step="1"><pre><span class="cm"># Monday, 09:14: "just to make it work"</span>
+git commit -m <span class="cmd2">"wire up historian"</span>
+<span class="red">+ IGNITION_API_KEY = "ak_live_9f3ce81b..."</span></pre></div>
+        <div class="code reveal" data-step="2" style="margin-top:12px"><pre><span class="cm"># Monday, 09:40: "phew, removed it"</span>
+git commit -m <span class="cmd2">"oops, remove key"</span>
+<span class="grn">- IGNITION_API_KEY = "ak_live_9f3ce81b..."</span></pre></div>
+        <div class="code reveal" data-step="3" style="margin-top:12px"><pre><span class="cm"># anyone, any clone, any time later:</span>
+git log -p | grep ak_live
+<span class="red">+ IGNITION_API_KEY = "ak_live_9f3ce81b..."</span>  <span class="cm">← still there</span></pre></div>
       </div>
-      <div class="pipe-arr reveal" data-step="1"><span class="a">→</span><span class="l">PR merged<br>to develop</span></div>
-      <div class="stagebox reveal" data-step="1">
-        <div class="sn">automatic</div>
-        <h4>DEV</h4>
-        <div class="tag">:sha · :dev</div>
-        <div class="scope">mode=dev · :8089</div>
+      <div>
+        <div class="callout reveal" data-step="4" style="margin-top:0;border-left:5px solid var(--bad)">
+          <div class="lab" style="color:var(--bad)">The only correct response</div>
+          <p><b>1. Rotate the credential, immediately.</b> The old value is public property now; make it worthless.</p>
+          <p style="margin-top:8px"><b>2. Then, optionally, scrub history</b> (<code>git filter-repo</code>, BFG). On a shared remote this is best-effort: forks, clones and CI caches keep copies.</p>
+          <p style="margin-top:8px">Deleting the line and force-pushing <b>without rotating</b> is theatre.</p>
+        </div>
+        <div class="callout reveal" data-step="4">
+          <div class="lab" style="color:var(--blue)">Prevention beats response</div>
+          <p>Secret scanners (e.g. <b>gitleaks</b>) in <code>scripts/validate.sh</code> and CI catch the Monday-09:14 commit <b>before</b> it's pushed. You'll wire this in the assignment.<!-- TODO(infra): gitleaks not yet wired into validate.sh/ci.yml --></p>
+        </div>
       </div>
-      <div class="pipe-arr reveal" data-step="2"><span class="a">→</span><span class="l">push<br>release/*</span></div>
-      <div class="stagebox reveal" data-step="2">
-        <div class="sn">freeze point</div>
-        <h4>TEST</h4>
-        <div class="tag">:test</div>
-        <div class="scope">mode=tst · :8091</div>
-      </div>
-      <div class="pipe-arr gate reveal" data-step="3"><span class="a">⛔→</span><span class="l">tag v* +<br>approval</span></div>
-      <div class="stagebox reveal" data-step="3">
-        <div class="sn">gated</div>
-        <h4>PROD</h4>
-        <div class="tag">:vX.Y.Z · :prod</div>
-        <div class="scope">mode=prd · :8090</div>
-      </div>
-    </div>
-
-    <div class="callout reveal" data-step="4" style="border-left:5px solid var(--navy)">
-      <div class="lab" style="color:var(--blue)">The invariant</div>
-      <p>The image is <b>built exactly once</b>, on the push to <code>develop</code>. Every arrow after that is <code>docker buildx imagetools create</code>: a server-side <b>re-tag</b>. The digest on prod is byte-identical to what dev ran. Rebuild anywhere along the way and you've thrown your testing evidence in the bin.</p>
     </div>
   </div>
 
-  <div class="controls" style="border-top-color:var(--line)">
-    <span class="lead-step" id="pipe-step" style="color:var(--txt-dim)">Step through how one build travels the pipeline.</span>
+  <div class="controls">
+    <span class="lead-step" id="burn-step">Step through the leak everyone commits once, and why "removing" it fixes nothing.</span>
     <button class="btn" data-act="back">◀ Back</button>
     <button class="btn primary" data-act="next">Next ▶</button>
   </div>
 </section>
 
-<!-- 6 · PROMOTION MODELS COMPARED -->
+<!-- 6 · THE SECRETS LADDER (interactive) -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Promotion · models</div>
+    <div class="stage">Part 1 · Secrets · the ladder</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">04</span>
       <div>
-        <div class="title">Two ways teams do this, and one is a trap</div>
-        <div class="lead"><b>Branch-per-environment</b> feels natural in git. It's the most common way multi-environment Ignition projects go wrong.</div>
+        <div class="title">The secrets ladder: four rungs, from hardcoded to referenced</div>
+        <div class="lead">Each rung fixes the leak of the one below it. You don't need the top rung everywhere. You need to <b>know which rung you're on</b>.</div>
       </div>
     </div>
-    <table class="tbl">
-      <tr><th></th><th class="bad">Branch-per-environment</th><th class="goodc">Build-once / promote-many (this lab)</th></tr>
-      <tr><td><b>Deploy =</b></td><td>merge <code>dev</code> → <code>test</code> → <code>prod</code> branches</td><td>re-tag one immutable image</td></tr>
-      <tr><td><b>Prod runs</b></td><td>a <b class="bad">fresh build</b> of the prod branch, not the bytes you tested</td><td><b>the exact digest</b> test validated</td></tr>
-      <tr><td><b>Hotfix</b></td><td>merged to <code>prod</code>… and forgotten on <code>dev</code> → next release <b class="bad">un-fixes prod</b></td><td>one branch (<code>hotfix/*</code>), one build, promoted like anything else</td></tr>
-      <tr><td><b>Env config</b></td><td>leaks into branch diffs: same file, different forever</td><td>lives in <b>scope overlays</b>, identical across the pipeline</td></tr>
-      <tr><td><b>History answers</b></td><td>"what's on prod?" → archaeology</td><td>git = the product · registry tags = pipeline position</td></tr>
-    </table>
-    <div class="callout">
-      <div class="lab">Say it once, clearly</div>
-      <p>Git history describes <b>the product</b>. Registry tags describe <b>where each build stands</b>. The moment environments become branches, those two get tangled and every deploy is a merge with side effects.</p>
+
+    <div class="ladder">
+      <div class="rung r0 reveal" data-step="1">
+        <div class="rn">0</div>
+        <div class="rt">Hardcoded in the repo <span>plaintext in <code>docker-compose.yaml</code> or committed config</span></div>
+        <div class="leak"><b>Leaks into:</b> Git history, every clone, every fork. Never acceptable.</div>
+      </div>
+      <div class="rung r1 reveal" data-step="2">
+        <div class="rn">1</div>
+        <div class="rt">Env vars via <code>.env</code> + Compose interpolation <span>what labs 02 to 05 already do</span></div>
+        <div class="leak"><b class="ok">Out of Git.</b> <b>Still leaks into:</b> <code>docker inspect</code>, <code>compose config</code>, the container's process env.</div>
+      </div>
+      <div class="rung r2 reveal" data-step="3">
+        <div class="rn">2</div>
+        <div class="rt">File-based secrets <span>files mounted read-only at <code>/run/secrets/&lt;name&gt;</code></span></div>
+        <div class="leak"><b class="ok">Not in inspect, not in process env.</b> A plaintext file on the host: the infra side owns and fills it.</div>
+      </div>
+      <div class="rung r3 reveal" data-step="4">
+        <div class="rn">3</div>
+        <div class="rt">Ignition 8.3 secret providers <span>gateway config <b>references</b> a secret instead of containing it</span></div>
+        <div class="leak"><b class="ok">Config becomes portable</b> across local / dev / prod. Rungs 2 + 3 together are how Wilms runs production. Next slides.</div>
+      </div>
     </div>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Environments are tags, not branches</span></div>
+  <div class="controls">
+    <span class="lead-step" id="ladder-step">Climb the ladder rung by rung, bottom to top.</span>
+    <button class="btn" data-act="back">◀ Back</button>
+    <button class="btn primary" data-act="next">Climb ▶</button>
+  </div>
 </section>
 
-<!-- 7 · GATES -->
+<!-- 7 · RUNG 1: .ENV + INTERPOLATION -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Promotion · gates</div>
+    <div class="stage">Part 1 · Secrets · rung 1</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">05</span>
       <div>
-        <div class="title">Gates: what stands between stages</div>
-        <div class="lead">Each hop has a different <b>kind</b> of gate, and the prod gate needs <b>zero workflow changes</b>.</div>
+        <div class="title">Rung 1: <span class="mono" style="font-size:34px">.env</span> files, done properly</div>
+        <div class="lead">You've been on this rung since lab 02 without ceremony. Let's make the convention explicit: it's good, and it has a known ceiling.</div>
       </div>
     </div>
-    <div class="split">
+    <div class="cols2">
+      <ul class="checks">
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b><span class="mono">.env</span> is gitignored; <span class="mono">.env.example</span> is committed.</b> The example documents every variable with a safe placeholder. Every lab repo ships one.</span></li>
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Compose interpolates</b> <span class="mono">${VAR:-default}</span> at <i>parse</i> time: safe defaults for the lab, real values from your <span class="mono">.env</span>.</span></li>
+        <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>The ceiling:</b> the value still lands in the container's <b>environment</b>, visible in <span class="mono">docker inspect</span>, <span class="mono">docker compose config</span>, and to any code that can dump env.</span></li>
+      </ul>
       <div>
-        <table class="tbl">
-          <tr><th>Hop</th><th>Gate</th><th>Mechanism</th></tr>
-          <tr><td>feature → develop</td><td>review + CI green</td><td>PR + branch protection</td></tr>
-          <tr><td>develop → dev</td><td><b>none</b>, automatic</td><td><code>deploy.yml</code> on push</td></tr>
-          <tr><td>dev → test</td><td>a human says "freeze"</td><td>pushing <code>release/*</code></td></tr>
-          <tr><td>test → prod</td><td>acceptance + <b>approval</b></td><td>tag <code>v*</code> + <b>required reviewers</b></td></tr>
-        </table>
+        <div class="code"><pre><span class="cm"># docker-compose.yaml: lab 04/05, unchanged</span>
+environment:
+  GATEWAY_ADMIN_PASSWORD: <span class="cmd2">"${GATEWAY_ADMIN_PASSWORD_LOCAL:-lab04password}"</span>
+  POSTGRES_PASSWORD: <span class="cmd2">"${POSTGRES_PASSWORD:-ignition}"</span>
+
+<span class="cm"># where the leak shows:</span>
+docker inspect lab06-timescaledb \
+  | grep POSTGRES_PASSWORD        <span class="red"># plaintext</span></pre></div>
+        <div class="callout" style="margin-top:14px">
+          <div class="lab" style="color:var(--blue)">Verdict</div>
+          <p><b>Perfectly fine for a laptop lab.</b> Not where you stop for shared dev/prod machines. That's rung 2.</p>
+        </div>
       </div>
-      <div>
-        <ul class="checks">
-          <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Workflows say what happens.</b> Environments say <b>what's allowed to happen, and by whom</b>. Required reviewers on <span class="inlinecode">lab-gateway-prod</span> pause the deploy job until someone clicks approve.</span></li>
-          <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Gates you'd add in real life:</b> smoke tests against the freshly deployed stage, change-window checks, a digest-equality assertion before prod.</span></li>
-          <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>The release branch is a gate too</b>: a human decision ("this is what we'll test") expressed as a git action, so it's audited like everything else.</span></li>
-        </ul>
-      </div>
-    </div>
-    <div class="callout">
-      <div class="lab">In the lab</div>
-      <p>You'll add yourself as a required reviewer on <code>lab-gateway-prod</code>, tag a release, and watch the prod deploy <b>sit and wait for you</b>. Approval is a button, and an audit-log entry.</p>
     </div>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Environments gate · workflows execute</span></div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Rung 1: good locally, leaky beyond</span></div>
 </section>
 
-<!-- 8 · DIVIDER · CONFIG -->
-<section class="slide dark">
-  <div class="topbar">
-    <div class="on-dark brandrow"><img class="logo-img" src="logos/OriginalLight.png" alt="Mustry Solutions"></div>
-    <div class="stage on-dark">Configuration</div>
-  </div>
-  <div class="divider">
-    <div class="eyebrow">Block F</div>
-    <div class="q">Same bytes everywhere, so what's <em>allowed</em> to differ?</div>
-    <div class="sub2">Dev writes history to <span class="mono" style="color:#dbe4f0">ignition_dev</span>, prod to <span class="mono" style="color:#dbe4f0">ignition_prd</span>, and you never configured that by hand. Time to open the box.</div>
-  </div>
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>configuration options explored</span></div>
-</section>
-
-<!-- 9 · THE ENVIRONMENT DIFF INVENTORY -->
+<!-- 8 · RUNG 2: DOCKER SECRETS -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Configuration · inventory</div>
+    <div class="stage">Part 1 · Secrets · rung 2</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">06</span>
       <div>
-        <div class="title">What actually differs per environment?</div>
-        <div class="lead">Take an inventory before choosing a mechanism. Most of the gateway is (and must stay) <b>identical</b>.</div>
+        <div class="title">Rung 2, file-based secrets: the best way we know</div>
+        <div class="lead">A secret is a <b>file</b>, not an env var. This one idea works everywhere we deploy: Docker Compose mounts it, Kubernetes mounts it the same way, and Ignition's secret provider can read it directly. It's how Wilms runs production.</div>
       </div>
     </div>
     <div class="cols2">
-      <div class="does">
-        <div class="hd" style="color:var(--good)">Identical everywhere (or you're not testing prod)</div>
-        <ul>
-          <li><span class="d" style="background:var(--good)"></span>Projects: views, scripts, styles, session props</li>
-          <li><span class="d" style="background:var(--good)"></span>Tag structures &amp; UDT definitions</li>
-          <li><span class="d" style="background:var(--good)"></span>The module set (<span class="mono">modules.json</span>) and module versions</li>
-          <li><span class="d" style="background:var(--good)"></span>Historian / tag-provider <i>structure</i></li>
-          <li><span class="d" style="background:var(--good)"></span>Ignition version, JVM, base image</li>
-        </ul>
+      <div>
+        <div class="code"><pre><span class="cm"># docker-compose.yaml</span>
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt   <span class="cm"># gitignored</span>
+
+services:
+  timescaledb:
+    secrets: [postgres_password]
+    environment:
+      <span class="cm"># official postgres image: _FILE suffix</span>
+      POSTGRES_PASSWORD_FILE: <span class="cmd2">/run/secrets/postgres_password</span></pre></div>
       </div>
-      <div class="does">
-        <div class="hd" style="color:var(--warn)">Legitimately different per environment</div>
-        <ul>
-          <li><span class="d" style="background:var(--warn)"></span>Database <span class="mono">connectURL</span> (dev DB vs prod DB)</li>
-          <li><span class="d" style="background:var(--warn)"></span>OPC UA endpoints / device addresses (sim vs plant)</li>
-          <li><span class="d" style="background:var(--warn)"></span>Gateway name, gateway-network targets</li>
-          <li><span class="d" style="background:var(--warn)"></span>Alarm notification targets (test SMTP vs real pagers)</li>
-          <li><span class="d" style="background:var(--warn)"></span>Credentials &amp; API keys: <b>secret</b>, special handling</li>
-        </ul>
-      </div>
-    </div>
-    <div class="callout">
-      <div class="lab">The rule</div>
-      <p>If it differs per environment, it must be <b>parameterized and versioned</b>, never hand-edited on the gateway after deploy. A hand-edit is a difference that survives exactly until the next deploy erases it. <b>That</b> is the 2 a.m. incident.</p>
+      <ul class="checks">
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Not in <span class="mono">docker inspect</span></b>, not in the process environment: the value only exists as a mounted file the process reads at startup.</span></li>
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Portable across platforms.</b> Compose <span class="mono">secrets:</span>, Kubernetes secret volumes and plain bind mounts all end at the same place: a small read-only file at a known path.</span></li>
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Clean handover to infra.</b> The repo commits the <b>paths and names</b> (plus <span class="mono">*.example</span> dummies); the infra team fills the real files per environment. Wilms even ships committed dummy values for local dev, so a fresh clone just works.</span></li>
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>And CI can produce these files too:</b> a deploy workflow can write GitHub secrets into password files on the target before <span class="mono">compose up</span>. Same mechanism end to end: slide 09.</span></li>
+        <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>Still open:</b> Ignition config itself (DB connections, auth) must point at those files without containing values. That's the next rung.</span></li>
+      </ul>
     </div>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Inventory first, mechanism second</span></div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Rung 2: a secret is a file at a known path</span></div>
 </section>
 
-<!-- 10 · IGNITION CONFIG SCOPES -->
+<!-- 9 · DIVIDER: IGNITION 8.3 NATIVE SECRETS -->
+<section class="slide dark">
+  <div class="topbar">
+    <div class="on-dark brandrow"><img class="logo-img" src="logos/OriginalLight.png" alt="Mustry Solutions"></div>
+    <div class="stage on-dark">Part 1 · Ignition 8.3</div>
+  </div>
+  <div class="divider">
+    <div class="eyebrow">Rung 3</div>
+    <div class="q">Ignition 8.3 has secrets <em>built in</em>.</div>
+    <div class="sub2">8.3 added first-class secrets management to the gateway. There are two flavours, <span style="color:#fff">embedded</span> and <span style="color:#fff">referenced</span>, and only one of them survives contact with a pipeline.</div>
+  </div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>secret providers · embedded vs referenced</span></div>
+</section>
+
+<!-- 10 · EMBEDDED VS REFERENCED -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Configuration · Ignition 8.3 scopes</div>
+    <div class="stage">Part 1 · Ignition 8.3 · secret providers</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">07</span>
       <div>
-        <div class="title">Ignition 8.3 config scopes</div>
-        <div class="lead">Gateway config lives in <span class="mono">config/resources/&lt;scope&gt;/…</span>, and scopes form an <b>inheritance chain</b>. You've been shipping this structure since Lab 04.</div>
+        <div class="title">Embedded vs referenced secrets</div>
+        <div class="lead">Gateway config (DB connections, auth profiles, email…) needs credentials. 8.3 gives you two ways to store them, and the difference decides whether your config can travel.</div>
       </div>
     </div>
-
-    <div class="chain">
-      <div class="cnode"><div class="t">external</div><div class="s">Ignition defaults</div></div>
-      <span class="carr">→</span>
-      <div class="cnode"><div class="t">core</div><div class="s">shared, versioned</div></div>
-      <span class="carr">→</span>
-      <div class="cnode env"><div class="t">loc</div><div class="s">local gw</div></div>
-      <div class="cnode env"><div class="t">dev</div><div class="s">dev gw</div></div>
-      <div class="cnode env"><div class="t">tst</div><div class="s">test gw: <b>you build this</b></div></div>
-      <div class="cnode env"><div class="t">prd</div><div class="s">prod gw</div></div>
+    <div class="cols2">
+      <div class="does">
+        <div class="hd" style="color:var(--warn)">Embedded secret</div>
+        <ul>
+          <li><span class="d" style="background:var(--warn)"></span>The value is <b>encrypted by this gateway</b> and stored inside its own config.</li>
+          <li><span class="d" style="background:var(--warn)"></span>Fine for a single, hand-managed gateway: set it once in the UI, done.</li>
+          <li><span class="d" style="background:var(--warn)"></span><b>The catch:</b> the ciphertext is encrypted against <i>that gateway's</i> keys. A committed ciphertext only decrypts on the gateway that produced it: on a fresh container it's a <b>broken reference</b>.</li>
+          <li><span class="d" style="background:var(--warn)"></span>For a pipeline that promotes the <i>same</i> config local → dev → prod: a dead end, <b>unless you manage the keys yourself</b>. That exception is slide 10.</li>
+        </ul>
+      </div>
+      <div class="does">
+        <div class="hd" style="color:var(--good)">Referenced secret</div>
+        <ul>
+          <li><span class="d" style="background:var(--good)"></span>Config stores a <b>reference</b>: "get <code>MSSQL_PASSWORD</code> from provider <code>WilmsSecrets</code>", never the value.</li>
+          <li><span class="d" style="background:var(--good)"></span>A <b>file-type secret provider</b> resolves it at runtime by reading a file: rungs 2 and 3 snap together at <code>/run/secrets/&lt;name&gt;</code>.</li>
+          <li><span class="d" style="background:var(--good)"></span>This is exactly the Wilms setup: one provider named <code>WilmsSecrets</code>, ~16 named secrets, every DB connection and auth profile pointing at it by name.</li>
+          <li><span class="d" style="background:var(--good)"></span>Committed config contains <b>no secret material</b>, so it can be diffed, reviewed and deployed anywhere.</li>
+        </ul>
+      </div>
     </div>
-
-    <div class="cols2" style="margin-top:20px">
-      <div class="code"><pre>services/config/resources/
-├── external/config-mode.json   <span class="cm">{parent:"system"}</span>
-├── core/config-mode.json       <span class="cm">{parent:"external"}</span>
-│   └── ignition/database-connection/
-│       └── TimescaleDB/config.json
-├── dev/config-mode.json        <span class="cm">{parent:"core"}</span>
-│   └── …/TimescaleDB/config.json  <span class="cmd2">← ignition_dev</span>
-├── prd/…/TimescaleDB/config.json  <span class="cmd2">← ignition_prd</span>
-└── tst/                        <span class="cm"># ← doesn't exist yet!</span></pre></div>
-      <ul class="checks">
-        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span>Each scope declares its <b>parent</b> in <span class="inlinecode">config-mode.json</span>. Resolution walks child-first: <b>env beats core beats external</b>.</span></li>
-        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span>The gateway picks its scope at boot: <span class="inlinecode">-Dignition.config.mode=dev</span>, one JVM arg in the compose <span class="inlinecode">command:</span>.</span></li>
-        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>All scopes ship in the artifact.</b> Dev's image contains prod's overlay and vice versa: selection, not content, differs per gateway.</span></li>
-        <!-- [VERIFY] resolution semantics: whole-resource replacement vs per-key merge. The lab overlays replace the entire config.json, which is the safe claim. -->
-      </ul>
+    <div class="callout">
+      <div class="lab" style="color:var(--blue)">Rule of thumb</div>
+      <p><b>Embedded = pet gateway. Referenced = pipeline.</b> If a gateway's config is in Git (and after labs 04 and 05, yours is), its secrets should be referenced.</p>
     </div>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>config/resources/&lt;scope&gt; · -Dignition.config.mode</span></div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>embedded = stuck · referenced = portable</span></div>
 </section>
 
-<!-- 11 · SCOPE RESOLUTION WALKTHROUGH (interactive) -->
+<!-- 11 · WHY REFERENCED WINS: PORTABILITY DIAGRAM -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Configuration · resolution</div>
+    <div class="stage">Part 1 · Ignition 8.3 · portability</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">08</span>
       <div>
-        <div class="title">One connection name, three databases</div>
-        <div class="lead">Every project queries <span class="inlinecode">TimescaleDB</span> by name. Which database answers depends on <b>who's asking</b>.</div>
+        <div class="title">One config, three gateways, three values</div>
+        <div class="lead">The same committed config works everywhere, because each environment injects its <b>own</b> value under the same secret name. Config stays in Git; values stay out.</div>
       </div>
     </div>
 
-    <div class="pipe-row" style="gap:18px">
-      <div class="stagebox reveal" data-step="1" style="text-align:left">
-        <div class="sn">gateway: dev · mode=dev</div>
-        <h4 style="font-size:16px">looks up <span class="mono">TimescaleDB</span></h4>
-        <div class="code" style="margin-top:10px"><pre>dev/…/TimescaleDB?   <span class="cmd2">✓ found</span>
-→ jdbc:…/<span class="cmd2">ignition_dev</span></pre></div>
+    <div class="port">
+      <div class="filecard">
+        <div class="fh">📄 database-connection config.json, committed (real shape, from the Wilms repo)</div>
+        <pre>"password": {
+  "type": <span class="hl">"Referenced"</span>,
+  "data": {
+    "providerName": <span class="hl">"WilmsSecrets"</span>,
+    "secretName": <span class="hl">"MSSQL_PASSWORD"</span>   <span class="cm">← a name,
+                                    not a value</span>
+  }
+}</pre>
       </div>
-      <div class="stagebox reveal" data-step="2" style="text-align:left">
-        <div class="sn">gateway: prod · mode=prd</div>
-        <h4 style="font-size:16px">same lookup, same image</h4>
-        <div class="code" style="margin-top:10px"><pre>prd/…/TimescaleDB?   <span class="cmd2">✓ found</span>
-→ jdbc:…/<span class="cmd2">ignition_prd</span></pre></div>
-      </div>
-      <div class="stagebox reveal" data-step="3" style="text-align:left;border-color:var(--warn)">
-        <div class="sn" style="color:var(--warn)">gateway: test · mode=tst</div>
-        <h4 style="font-size:16px">…but tst/ doesn't exist</h4>
-        <div class="code" style="margin-top:10px"><pre>tst/…/TimescaleDB?   <span class="cm">✗ miss</span>
-core/…/TimescaleDB?  <span class="cmd2">✓ falls back</span>
-→ <span class="cm">core's URL, the WRONG db</span></pre></div>
+      <div class="bigarr">→</div>
+      <div class="gwrow">
+        <div class="gw">
+          <span class="tag">local</span>
+          <span class="v">resolves <b>MSSQL_PASSWORD</b> → <b>/run/secrets/MSSQL_PASSWORD</b> = <i>a committed dummy value, so a fresh clone just works</i></span>
+        </div>
+        <div class="gw dev">
+          <span class="tag">dev</span>
+          <span class="v">resolves <b>MSSQL_PASSWORD</b> → <i>the file infra filled on the dev host</i></span>
+        </div>
+        <div class="gw prod">
+          <span class="tag">prod</span>
+          <span class="v">resolves <b>MSSQL_PASSWORD</b> → <i>the prod value, which only prod ever holds</i></span>
+        </div>
       </div>
     </div>
 
-    <div class="callout reveal" data-step="4" style="border-left:5px solid var(--warn)">
-      <div class="lab">Silent fallback is the sharp edge</div>
-      <p>A missing overlay doesn't error; it <b>inherits</b>. The test gateway will happily boot and write test data into whatever core points at. In the lab, <b>you</b> create <code>tst/</code> and ship it through the pipeline to fix exactly this.</p>
+    <div class="callout">
+      <div class="lab" style="color:var(--blue)">Same pattern, everywhere</div>
+      <p>You already use this model in CI: <b>one workflow file</b>, and the <code>lab-gateway-dev</code> / <code>lab-gateway-prod</code> GitHub <b>environments</b> each supply their own <code>IGNITION_API_KEY</code>. Referenced secrets bring the identical idea inside the gateway.</p>
     </div>
   </div>
 
-  <div class="controls" style="border-top-color:var(--line)">
-    <span class="lead-step" id="scope-step" style="color:var(--txt-dim)">Step through the same lookup on three gateways.</span>
-    <button class="btn" data-act="back">◀ Back</button>
-    <button class="btn primary" data-act="next">Next ▶</button>
-  </div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>the reference travels · the value stays home</span></div>
 </section>
 
-<!-- 12 · THE THREE BUCKETS -->
+<!-- 12 · SECRETS IN CI -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Configuration · the framework</div>
+    <div class="stage">Part 1 · Secrets · in the pipeline</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">09</span>
       <div>
-        <div class="title">Every knob goes in one of three buckets</div>
-        <div class="lead">This classification <b>is</b> configuration management. When in doubt, argue about the bucket, not the mechanism.</div>
+        <div class="title">Secrets in GitHub Actions, and turning them into secret files on deploy</div>
+        <div class="lead">Lab 04 made you create environment secrets. Two things to add: the discipline that goes with them, and the move that connects them to rung 2: <b>the deploy workflow writes GitHub secrets into the password files</b> the gateway's provider reads.</div>
       </div>
     </div>
-    <div class="buckets">
-      <div class="bucket">
-        <div class="bh">Bucket 1</div>
-        <h4>Same everywhere</h4>
-        <p>Identical in every environment; differences here mean you're not testing what you ship.</p>
-        <ul>
-          <li>historian provider settings</li>
-          <li>tag providers, IdP config</li>
-          <li>session props, module set</li>
-        </ul>
-        <div class="where">→ core/ · in git · in the image</div>
+    <div class="cols2">
+      <ul class="checks">
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Environment-scoped, not repo-wide.</b> <span class="mono">lab-gateway-prod</span> holds the prod values; a PR build against dev can't even see them. Add <b>required reviewers</b> on the prod environment for a human gate.</span></li>
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>GitHub secrets → secret files.</b> The deploy job materializes each secret as a file on the target host, with tight permissions <b>before</b> the value lands, then <span class="mono">compose up</span> mounts them at <span class="mono">/run/secrets/</span>. One source of truth in GitHub, files on the box, references in the gateway: the whole ladder in one pipeline run.</span></li>
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Masking is a seatbelt, not a licence.</b> Actions replaces known secret values with <span class="mono">***</span> in logs, but don't <span class="mono">echo</span> them, don't <span class="mono">set -x</span> around them, don't write them into artifacts.</span></li>
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Forks don't get secrets.</b> <span class="mono">pull_request</span> runs from forks see empty secrets by design: one more reason deploys trigger on <span class="mono">push</span>/<span class="mono">tag</span>, never on PR.</span></li>
+      </ul>
+      <div>
+        <div class="code"><pre><span class="cm"># deploy.yml: write secrets to files, then deploy</span>
+jobs:
+  deploy:
+    runs-on: [self-hosted, lab06]
+    environment: <span class="cmd2">lab-gateway-dev</span>   <span class="cm"># ← scoping</span>
+    steps:
+      - name: Materialize secret files
+        env:
+          POSTGRES_PASSWORD: <span class="cmd2">${{ secrets.POSTGRES_PASSWORD }}</span>
+        run: |
+          umask 177                    <span class="cm"># files land 0600</span>
+          mkdir -p secrets
+          printf '%s' "$POSTGRES_PASSWORD" \
+            &gt; secrets/postgres_password.txt
+      - name: Deploy
+        run: docker compose up -d</pre></div>
+        <div class="callout" style="margin-top:14px">
+          <div class="lab">Never</div>
+          <p><code>run: echo ${{ secrets.X }}</code>, and never interpolate a secret straight into a <b>shell command line</b>; pass it through <code>env:</code> and write with <code>printf</code>, so it stays out of the run log. Wilms' boot script does exactly this: <code>umask</code> + <code>chmod 0600</code> <b>before</b> the value is written.</p>
+        </div>
       </div>
-      <div class="bucket b2">
-        <div class="bh">Bucket 2</div>
-        <h4>Per-env, readable</h4>
-        <p>Differs by design, safe for anyone with repo access to read.</p>
-        <ul>
-          <li>DB <span class="mono">connectURL</span></li>
-          <li>OPC UA endpoints, device IPs</li>
-          <li>alarm SMTP host, gateway name</li>
-        </ul>
-        <div class="where">→ scope overlay · in git · in the image</div>
-      </div>
-      <div class="bucket b3">
-        <div class="bh">Bucket 3</div>
-        <h4>Secret</h4>
-        <p>Differs per env <b>and</b> must not be readable. Currently: encrypted blobs sitting in git. Not good enough.</p>
-        <ul>
-          <li>DB passwords</li>
-          <li>API keys, PATs</li>
-          <li>cloud credentials</li>
-        </ul>
-        <div class="where">→ NOT in git → Lab 07 (this afternoon)</div>
-      </div>
-    </div>
-    <div class="callout">
-      <div class="lab">Sharp edges</div>
-      <p>One resource can straddle buckets: an IdP config is bucket 1 <b>with a bucket-3 client secret inside it</b>. And <code>modules.json</code> is bucket 1 in spirit but lives <i>outside</i> the scope tree. The drill in the lab makes you defend ten of these classifications.</p>
     </div>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>core · overlay · secret</span></div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>environments · secret files · masking</span></div>
 </section>
 
-<!-- 13 · BAKE / BOOT / RUN -->
+<!-- 13 · THE NEVER-COMMIT LIST -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Configuration · layers</div>
+    <div class="stage">Part 1 · Secrets · the list</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">10</span>
       <div>
-        <div class="title">Bake-time · boot-time · run-time</div>
-        <div class="lead">Buckets say <b>where a value lives</b>. Layers say <b>when it takes effect</b>, and what it costs to change.</div>
+        <div class="title">The never-commit list for an Ignition repo</div>
+        <div class="lead">Print this. Tape it to the monitor of whoever owns the repo.</div>
       </div>
     </div>
-    <table class="tbl">
-      <tr><th>Layer</th><th>Set where</th><th>Changing it means</th><th>Examples</th></tr>
-      <tr>
-        <td><b>Bake-time</b></td>
-        <td>Dockerfile / image content</td>
-        <td>new image build + full promotion</td>
-        <td>projects, <code>.modl</code> binaries, <b>all scope overlays</b></td>
-      </tr>
-      <tr>
-        <td><b>Boot-time</b></td>
-        <td>compose env vars + JVM args</td>
-        <td>recreate the container</td>
-        <td><code>-Dignition.config.mode</code>, admin creds, memory, ports, <code>GATEWAY_MODULES_ENABLED</code></td>
-      </tr>
-      <tr>
-        <td><b>Run-time</b></td>
-        <td>gateway APIs / scan</td>
-        <td>nothing restarts</td>
-        <td>project resources via file-based scan, Lab 04's inner loop</td>
-      </tr>
-    </table>
-    <div class="callout" style="border-left:5px solid var(--teal)">
-      <div class="lab" style="color:var(--teal)">The multi-gateway insight</div>
-      <p>Overlays are <b>bake-time content</b>, but their <b>selection is boot-time</b> (<code>mode=…</code>). That's the whole trick: one image carries every environment, and a one-line boot flag decides which personality it wakes up with.</p>
+    <div class="cols2">
+      <ul class="checks">
+        <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b><span class="mono">.env</span></b>, any real one. (<span class="mono">.env.example</span> with placeholders: yes, please.)</span></li>
+        <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b><span class="mono">secrets/</span> contents</b>, where only the <span class="mono">*.example</span> files are tracked.</span></li>
+        <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>PATs &amp; API keys</b>: <span class="mono">ghp_…</span>, runner registration tokens, gateway API keys.</span></li>
+        <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>Gateway backups (<span class="mono">.gwbk</span>)</b> from real systems. They carry users, DB connections and keystores in one convenient bundle.</span></li>
+        <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>Keystores / TLS private keys</b>: <span class="mono">ssl.pfx</span>, <span class="mono">metro-keystore</span>, <span class="mono">*.p12</span>.</span></li>
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>The one defensible exception: ciphertexts, if you own the keys.</b> 8.3 ships a <b>secrets-management key CLI tool</b> (<span class="mono">ignition-secrets-tool.sh</span>) that manages the gateway's root key and key-encryption keys as JSON files under <span class="mono">data/config/ignition/keys/</span>. Distribute the <b>same keys</b> to your gateways (the way redundant pairs already do) and committed ciphertext decrypts everywhere: an alternative to file-based secrets. The keys themselves become the secret: infra distributes them, and they never, ever go in Git.</span></li>
+      </ul>
+      <div>
+        <div class="callout" style="margin-top:0">
+          <div class="lab" style="color:var(--blue)">Enforcement, not vigilance</div>
+          <p>Humans forget; hooks and CI don't. This repo's <code>scripts/validate.sh</code> runs a <b>secret scan</b> (gitleaks) and <code>ci.yml</code> repeats it on every PR: a leaked key fails the build before a reviewer ever sees it.<!-- TODO(infra): gitleaks wiring pending --></p>
+        </div>
+        <div class="code" style="margin-top:14px"><pre><span class="cm"># .gitignore: the relevant lines</span>
+.env
+secrets/*
+!secrets/*.example
+*.gwbk
+
+<span class="cm"># validate.sh (excerpt)</span>
+gitleaks detect --source . <span class="cm"># zero findings = green</span></pre></div>
+      </div>
     </div>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Content is baked · selection is booted</span></div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>if in doubt: it's a secret</span></div>
 </section>
 
-<!-- 14 · DIVIDER · FLEET -->
+<!-- 14 · DIVIDER: PART 2 DATABASE -->
 <section class="slide dark">
   <div class="topbar">
     <div class="on-dark brandrow"><img class="logo-img" src="logos/OriginalLight.png" alt="Mustry Solutions"></div>
-    <div class="stage on-dark">Fan-out</div>
+    <div class="stage on-dark">Part 2 · The database</div>
   </div>
   <div class="divider">
-    <div class="eyebrow">Scaling horizontally</div>
-    <div class="q">One release, a <em>fleet</em> of gateways.</div>
-    <div class="sub2">dev → test → prod got the build to production. Now production is four lines across two sites, and they all need the same digest.</div>
+    <div class="eyebrow">Part 2 · Deploying the database with your code</div>
+    <div class="q">Your screens are versioned. <em>Their schema isn't.</em></div>
+    <div class="sub2">A Perspective view that queries a table is only half an artifact. The other half lives in a Docker volume that no pipeline touches, yet.</div>
   </div>
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>matrix deploys · canary · fleet rollback</span></div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>drift → db-init's limit → migrations → the pipeline</span></div>
 </section>
 
-<!-- 15 · MATRIX FAN-OUT -->
+<!-- 15 · THE DRIFT PROBLEM -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Fan-out · matrix</div>
+    <div class="stage">Part 2 · Database · the problem</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">11</span>
       <div>
-        <div class="title">Fan-out with a matrix</div>
-        <div class="lead">GitHub Actions runs the <b>same deploy job once per gateway</b>. Promotion logic doesn't change; only the target list grows.</div>
+        <div class="title">Schema drift: the failure mode</div>
+        <div class="lead">The deploy pipeline from lab 04 ships the screen. Nothing ships the table the screen needs. That gap has a schedule: it bites on release day.</div>
       </div>
     </div>
     <div class="cols2">
-      <div class="code"><pre>deploy:
-  needs: promote
-  strategy:
-    matrix:
-      gateway: [prod, prod-b]   <span class="cm"># the fleet</span>
-    max-parallel: 1             <span class="cm"># one at a time → canary</span>
-    fail-fast: true             <span class="cm"># a failure HALTS the rollout</span>
-  runs-on: [self-hosted, lab06]
-  <span class="cm"># real fleets: one runner label per site,</span>
-  <span class="cm"># runs-on: [self-hosted, "${{ matrix.gateway }}"]</span>
-  environment: lab-gateway-${{ matrix.gateway }}
-  steps:
-    - run: scripts/deploy-image.sh ${{ matrix.gateway }} $TAG</pre></div>
-      <ul class="checks">
-        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>One matrix entry = one gateway.</b> Add a line to add a site. The artifact, the tag, and the approval gate are untouched.</span></li>
-        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b><span class="mono">max-parallel: 1</span> is your canary.</b> Order the list least-critical first; a failed healthcheck stops the rollout before it reaches line A.</span></li>
-        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Per-site runners.</b> In real fleets each site runs its own self-hosted runner with a site label, and the matrix routes each deploy to the right building. <!-- [VERIFY] in the lab all targets share one runner --></span></li>
-      </ul>
+      <div class="filecard">
+        <div class="fh">📄 what Git deploys to prod</div>
+        <pre>Perspective view "DowntimeLog"
+  ↳ named query: <span class="hl">SELECT reason, minutes
+    FROM downtime_log ...</span>   <span class="cm">← new screen,
+                              shipped ✅</span></pre>
+      </div>
+      <div class="filecard">
+        <div class="fh">🗄 what the prod database has</div>
+        <pre>ignition_prd=# \dt
+  batch_log      <span class="cm">✓</span>
+  recipe_params  <span class="cm">✓</span>
+  <span class="cm">downtime_log   ✗ created by hand
+                   on dev only, three
+                   weeks ago</span></pre>
+      </div>
     </div>
-    <div class="callout">
-      <div class="lab">Where per-site differences go</div>
-      <p>Line B's device IPs are <b>not</b> a different image and <b>not</b> a workflow variable; they're a scope overlay, same as dev vs prod. Horizontal differences use the same bucket framework as vertical ones.</p>
-    </div>
+    <ul class="checks" style="margin-top:20px;max-width:940px">
+      <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>"Worked on dev."</b> Because someone <i>manually</i> created the table on dev. Prod was never told. The screen 500s on release night.</span></li>
+      <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>No history.</b> Who changed the column type? When? Why? With hand-run SQL there is no equivalent of <span class="mono">git log</span> for your schema.</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>The fix is the same fix as always:</b> make schema change <b>files in the repo</b>, reviewed in the same PR as the screens that need them, applied by the pipeline.</span></li>
+    </ul>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Stretch exercise: prod + prod-b</span></div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>state that isn't files, yet</span></div>
 </section>
 
-<!-- 16 · FLEET FAILURE MODES -->
+<!-- 16 · DB-INIT RECAP -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Fan-out · failure modes</div>
+    <div class="stage">Part 2 · Database · what you already have</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">12</span>
       <div>
-        <div class="title">Fleets fail partially, so plan for it</div>
-        <div class="lead">The steady state <i>during</i> any rollout is a mixed-version fleet. The question isn't how to avoid it, it's how to <b>see it and get out of it</b>.</div>
+        <div class="title"><span class="mono" style="font-size:34px">db-init/</span>: bootstrap, not deployment</div>
+        <div class="lead">Labs 04/05 already mount SQL into the database container. Time to be precise about what that mechanism can and cannot do.</div>
       </div>
     </div>
-    <ul class="checks" style="max-width:960px">
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Drift must be visible in seconds.</b> "Which version is line B running?" = <span class="inlinecode">docker inspect -f '{{ index .RepoDigests 0 }}'</span> per gateway, or better, a status view that shows every gateway's version. Never archaeology.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Health-gate every hop.</b> Deploy → wait for <span class="inlinecode">/StatusPing</span> → only then take the next gateway. A failed check must <b>halt</b> the rollout, not skip the box.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Rollback = deploy with an older tag.</b> Same workflow, same mechanics, <span class="inlinecode">workflow_dispatch</span> with <span class="inlinecode">v1.0.0</span>. If rollback has <i>different</i> mechanics than deploy, it will fail exactly when you need it most.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Design the app for mixed versions.</b> Alarms, gateway-network calls, shared DB schemas all briefly span two versions during a rollout. (DB schema migrations: that was Day 3; secrets rotation: this afternoon.)</span></li>
-    </ul>
-    <div class="callout" style="border-left:5px solid var(--navy)">
-      <div class="lab" style="color:var(--blue)">Contrast worth naming</div>
-      <p>Ignition's own <b>EAM / gateway network</b> can push projects between gateways too, a pull-from-inside model. It solves delivery, not <b>promotion</b>: no build-once guarantee, no gates, no audit trail in git. Fine for some fleets; know what you're giving up. <!-- [VERIFY] instructor: how deep to go on EAM comparison --></p>
+    <div class="cols2">
+      <div>
+        <div class="code"><pre><span class="cm"># docker-compose.yaml: labs 04/05, unchanged</span>
+volumes:
+  - ./db-init:/docker-entrypoint-initdb.d:ro
+
+<span class="cm"># db-init/01-create-env-databases.sql</span>
+CREATE DATABASE ignition_dev;
+CREATE DATABASE ignition_prd;</pre></div>
+        <div class="callout" style="margin-top:14px">
+          <div class="lab">The one rule</div>
+          <p>Postgres runs <code>/docker-entrypoint-initdb.d</code> <b>once, on first init of an empty data volume.</b> Volume already exists? <b>Nothing runs.</b> Ever again.</p>
+        </div>
+      </div>
+      <ul class="checks">
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Great for:</b> creating the databases, the app user, extensions, the "day zero" shape of a <i>fresh</i> environment.</span></li>
+        <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>Useless for:</b> changing a database that already has data. Editing <span class="mono">db-init/*.sql</span> after first boot changes <i>nothing</i> on any running environment.</span></li>
+        <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>The trap:</b> "I added the table to db-init and it worked!", because you also wiped your volume. Prod doesn't get its volume wiped.</span></li>
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>So:</b> day-zero shape → <span class="mono">db-init/</span>. Day-one-and-beyond change → <b>migrations</b> →</span></li>
+      </ul>
     </div>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>See drift · gate health · uniform rollback</span></div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>runs once on first volume init</span></div>
 </section>
 
-<!-- 17 · MENTAL MODEL RECAP -->
+<!-- 17 · MIGRATIONS (interactive) -->
 <section class="slide">
   <div class="topbar">
     <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
-    <div class="stage">Teaching · recap</div>
+    <div class="stage">Part 2 · Database · migrations</div>
   </div>
 
   <div class="body">
     <div class="sechead">
       <span class="num">13</span>
       <div>
-        <div class="title">The whole model on one slide</div>
-        <div class="lead">If you remember three sentences from this hour, make it these.</div>
+        <div class="title">Migrations: numbered SQL files, applied in order, tracked in the database</div>
+        <div class="lead">We use <b>golang-migrate</b>, the same tool as the Proferro production repo. Files come in <b>pairs</b> (<span class="mono">.up.sql</span> / <span class="mono">.down.sql</span>), numbered; <span class="mono">migrate up</span> applies the ones a database hasn't seen yet, in order, and records where it got to.</div>
       </div>
     </div>
-    <div class="buckets">
-      <div class="bucket">
-        <div class="bh">Promotion</div>
-        <h4>Build once, re-tag forward</h4>
-        <p>One image built on <span class="mono">develop</span>. <span class="mono">release/*</span> promotes it to test; an approved tag promotes <b>test's</b> image to prod. The digest never changes; the trust does.</p>
+
+    <div class="mig">
+      <div class="migfiles">
+        <div class="filecard reveal" data-step="1">
+          <div class="fh">📄 db-migration/migrate/0001_baseline.up.sql <span class="cm">(+ .down.sql)</span></div>
+          <pre>CREATE TABLE batch_log (…);
+CREATE TABLE recipe_params (…);</pre>
+        </div>
+        <div class="filecard reveal" data-step="2">
+          <div class="fh">📄 db-migration/migrate/0002_add_downtime_log.up.sql <span class="cm">(+ .down.sql)</span></div>
+          <pre>CREATE TABLE downtime_log (
+  id BIGSERIAL PRIMARY KEY,
+  reason TEXT, minutes INT, …);</pre>
+        </div>
+        <div class="filecard reveal" data-step="3">
+          <div class="fh">📄 db-migration/migrate/0003_downtime_add_area.up.sql <span class="cm">(+ .down.sql)</span></div>
+          <pre>ALTER TABLE downtime_log
+  ADD COLUMN area TEXT;</pre>
+        </div>
       </div>
-      <div class="bucket b2">
-        <div class="bh">Configuration</div>
-        <h4>Content baked, selection booted</h4>
-        <p>Every environment's overlay ships in the artifact. <span class="mono">-Dignition.config.mode</span> picks one at boot. Differences are versioned; nothing is hand-edited.</p>
+      <div class="pipe reveal" data-step="4">
+        <div class="cap" style="color:var(--blue)">migrate up</div>
+        <div class="arr">→</div>
+        <div class="cap">applies what's<br>missing, in order</div>
       </div>
-      <div class="bucket b3">
-        <div class="bh">Fleet</div>
-        <h4>Horizontal = more tags on the same move</h4>
-        <p>A matrix fans the identical release out; health gates order it; rollback is the same workflow with yesterday's tag.</p>
+      <div class="store reveal" data-step="4">
+        <div class="sh">schema_migrations, inside each database</div>
+        <div class="entry"><span class="key g">0001</span><span class="val"><b>baseline</b> · applied on dev and prod</span></div>
+        <div class="entry"><span class="key g">0002</span><span class="val"><b>add downtime log</b> · applied on dev and prod</span></div>
+        <div class="entry"><span class="key">0003</span><span class="val"><b>downtime add area</b> · <i>pending on prod, applies on next deploy</i></span></div>
       </div>
     </div>
-    <div class="callout">
-      <div class="lab">Still unsolved, on purpose</div>
-      <p>Every password in those overlays is an encrypted blob <b>committed to git</b>. This afternoon (Lab 07) we rip those out and do secrets properly. Hold that itch.</p>
+
+    <div class="callout reveal" data-step="5" style="border-left:5px solid var(--navy)">
+      <div class="lab" style="color:var(--blue)">The rules that make this work (straight from Proferro's docs/MIGRATIONS.md)</div>
+      <p><b>Migrations always come in pairs</b> (<code>up</code> applies, <code>down</code> undoes) · <b>never edit a migration after it has deployed anywhere</b>: fix mistakes with a new numbered migration · the tool tracks each database's position in <code>schema_migrations</code>, so every environment catches up at its own pace. It's the Git mental model, applied to your schema.</p>
     </div>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Promotion · configuration · fleet</span></div>
+  <div class="controls">
+    <span class="lead-step" id="mig-step">Build the migration ledger step by step.</span>
+    <button class="btn" data-act="back">◀ Back</button>
+    <button class="btn primary" data-act="next">Next ▶</button>
+  </div>
 </section>
 
-<!-- 18 · IN THE LAB (closing) -->
+<!-- 18 · WIRING IT INTO THE PIPELINE -->
+<section class="slide">
+  <div class="topbar">
+    <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
+    <div class="stage">Part 2 · Database · in the pipeline</div>
+  </div>
+
+  <div class="body">
+    <div class="sechead">
+      <span class="num">14</span>
+      <div>
+        <div class="title">The deploy pipeline, now with a database step</div>
+        <div class="lead">Lab 04's five steps get a sixth, and the <b>order</b> is the whole point: the schema must be ready <b>before</b> the gateway scans in screens that need it.</div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="fstep"><div class="fn">1</div><h5>Checkout</h5><p>Runner checks out the merged commit on <span class="mono">develop</span> (or the tag).</p></div>
+      <div class="farr">→</div>
+      <div class="fstep"><div class="fn">2</div><h5>Validate</h5><p>JSON checks, secret scan, same gate as CI.</p></div>
+      <div class="farr">→</div>
+      <div class="fstep hot"><div class="fn">3 · new</div><h5>Migrate DB</h5><p><span class="mono">migrate up</span> against the <b>target env's</b> database. Fails → run stops here.</p></div>
+      <div class="farr">→</div>
+      <div class="fstep"><div class="fn">4</div><h5>Ship files</h5><p>Prune per <span class="mono">.deployignore</span>, <span class="mono">docker cp</span> into the gateway.</p></div>
+      <div class="farr">→</div>
+      <div class="fstep"><div class="fn">5</div><h5>Scan</h5><p><span class="mono">POST /scan</span>: gateway picks up projects + config, no restart.</p></div>
+      <div class="farr">→</div>
+      <div class="fstep"><div class="fn">6</div><h5>Verify</h5><p>Smoke check: gateway up, query the new table.</p></div>
+    </div>
+
+    <div class="cols2" style="margin-top:20px">
+      <div class="callout" style="margin-top:0">
+        <div class="lab" style="color:var(--good)">Why migrate before ship</div>
+        <p><b>Old screens tolerate a new table; new screens don't tolerate a missing one.</b> Expand-first ordering means a half-failed run leaves prod on old screens + new (unused) schema, a safe place to stop.</p>
+      </div>
+      <div class="callout" style="margin-top:0">
+        <div class="lab">On failure</div>
+        <p>The migrate step failing <b>fails the whole run</b>: no screens ship. Fix forward with a new migration and redeploy. Worth knowing: the Proferro pipeline runs migrations <b>after</b> the scan, with <span class="mono">continueOnError</span>. Look at it in the we-do and spot what can go wrong with that ordering.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>checkout → validate → migrate → ship → scan → verify</span></div>
+</section>
+
+<!-- 20 · DIVIDER: PART 3 MODULES & JARS -->
+<section class="slide dark">
+  <div class="topbar">
+    <div class="on-dark brandrow"><img class="logo-img" src="logos/OriginalLight.png" alt="Mustry Solutions"></div>
+    <div class="stage on-dark">Part 3 · Modules &amp; JARs</div>
+  </div>
+  <div class="divider">
+    <div class="eyebrow">Part 3 · Third-party modules and JAR files</div>
+    <div class="q">The binaries your gateway needs: <em>versioned and deployed</em>, not hand-installed</div>
+    <div class="sub2">MQTT drivers, charting modules, JDBC drivers, Java client libraries. Every real gateway has them, and "someone installed it once through the UI" is not a deployment strategy.</div>
+  </div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>.modl files → license acceptance → JARs</span></div>
+</section>
+
+<!-- 21 · THIRD-PARTY MODULES -->
+<section class="slide">
+  <div class="topbar">
+    <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
+    <div class="stage">Part 3 · third-party modules</div>
+  </div>
+
+  <div class="body">
+    <div class="sechead">
+      <span class="num">15</span>
+      <div>
+        <div class="title">Third-party modules: commit the .modl, load it from a folder, accept the license in config</div>
+        <div class="lead">Both reference repos do the same three things. The <span class="mono">.modl</span> binaries live in Git, a JVM flag points the gateway at them, and license acceptance is data, not a click.</div>
+      </div>
+    </div>
+
+    <div class="cols2">
+      <div class="does">
+        <div class="hd">The pattern (Proferro and Wilms, identically)</div>
+        <ul>
+          <li><span class="d"></span><span><b>Commit the binaries.</b> <code>third-party-modules/</code> holds the <span class="mono">.modl</span> files (MQTT Engine, Embr Charts, TimescaleDB Historian…), split per gateway where needs differ (Proferro: <code>it/</code> vs <code>ot/</code>).</span></li>
+          <li><span class="d"></span><span><b>Point the gateway at the folder.</b> The 8.3 flag <span class="mono">-Dignition.gateway.externalModulesFolder=/external-modules</span> loads them at boot: no UI install, ever.</span></li>
+          <li><span class="d"></span><span><b>Ship them like everything else.</b> File-based: the pipeline copies the folder to the gateway host. Image-based: one <span class="mono">COPY</span> layer, like you saw in the Wilms Dockerfile yesterday.</span></li>
+        </ul>
+      </div>
+      <div>
+        <div class="code"><pre><span class="cm"># headless license/cert acceptance, two mechanisms:</span>
+
+<span class="cm"># 1 · compose env vars (local + fresh containers)</span>
+ACCEPT_IGNITION_EULA: "Y"
+ACCEPT_MODULE_LICENSES: <span class="cmd2">"com.cirruslink.mqtt.engine.gateway"</span>
+ACCEPT_MODULE_CERTS: <span class="cmd2">"…"</span>
+
+<span class="cm"># 2 · modules.json (per-module, committed)</span>
+"com.cirruslink.mqtt.engine.gateway": {
+  "onStartup": "enabled",
+  "certFingerprint": <span class="cmd2">"b3d505…"</span>,
+  "licenseAgreementHash": <span class="cmd2">1007003261</span>
+}</pre></div>
+        <div class="callout" style="margin-top:14px">
+          <div class="lab">Why acceptance must be data</div>
+          <p>A fresh gateway (an image-based deploy, or a rebuilt container) has never seen the license dialog. If acceptance isn't in config, <b>your module silently doesn't start</b>: the cert fingerprint and license hash let the gateway accept it headlessly, every boot.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>References: proferro third-party-modules/ · wilms modules/ignition/</span></div>
+</section>
+
+<!-- 21b · JAR FILES -->
+<section class="slide">
+  <div class="topbar">
+    <div class="brandrow"><img class="logo-img" src="logos/OriginalDark.png" alt="Mustry Solutions"></div>
+    <div class="stage">Part 3 · JAR files</div>
+  </div>
+
+  <div class="body">
+    <div class="sechead">
+      <span class="num">16</span>
+      <div>
+        <div class="title">JAR files: JDBC drivers are config resources, other libraries go on the classpath</div>
+        <div class="lead">Two different kinds of JAR, two different homes. Both are versioned in the repo and shipped by the pipeline: nobody copies a JAR onto a server by hand.</div>
+      </div>
+    </div>
+
+    <div class="cols2">
+      <div class="does">
+        <div class="hd">Kind 1 · JDBC drivers: part of the 8.3 config tree</div>
+        <ul>
+          <li><span class="d"></span><span>In 8.3 a database driver is a <b>config resource</b>: the JAR sits <i>inside</i> the resource folder, next to its <span class="mono">config.json</span>.</span></li>
+          <li><span class="d"></span><span>Proferro, committed and deployed: <code>config/resources/core/ignition/database-driver/PostgreSQL/postgresql-42.7.2.jar</code>, with <span class="mono">resource.json</span> listing the JAR in its <span class="mono">"files"</span>.</span></li>
+          <li><span class="d"></span><span><b>It ships with the ordinary config copy.</b> No special handling: deploy the config tree, and the driver arrives with it.</span></li>
+        </ul>
+      </div>
+      <div class="does">
+        <div class="hd">Kind 2 · library JARs: on the gateway classpath</div>
+        <ul>
+          <li><span class="d"></span><span>Java libraries your gateway scripts call. Wilms ships <code>amqp-client</code> (RabbitMQ) and an SMB client, with their <b>pinned dependency JARs</b> alongside.</span></li>
+          <li><span class="d"></span><span>They live in <code>modules/jar/</code> in the repo, with a README that records <b>where each JAR came from</b> (the Maven Central command), and get copied to <code>lib/core/gateway/</code>.</span></li>
+          <li><span class="d"></span><span><b>Pin the versions, commit the binaries.</b> The gateway has no package manager: your repo is the lockfile.</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout">
+      <div class="lab" style="color:var(--blue)">One rule covers all of Part 3</div>
+      <p>Modules and JARs are <b>deployable state, exactly like a view or a config file</b>. If the gateway needs it to run, it lives in the repo, it travels through the pipeline, and a fresh gateway comes up complete with no hands on it.</p>
+    </div>
+  </div>
+
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>References: proferro database-driver resources · wilms modules/jar/</span></div>
+</section>
+
+<!-- 22 · IN THE LAB (closing) -->
 <section class="slide dark">
   <div class="topbar">
     <div class="on-dark brandrow"><img class="logo-img" src="logos/OriginalLight.png" alt="Mustry Solutions"></div>
@@ -875,21 +1049,20 @@ core/…/TimescaleDB?  <span class="cmd2">✓ falls back</span>
 
   <div class="body">
     <div class="eyebrow">Now we make it real</div>
-    <div class="title" style="max-width:24ch;color:#fff">In the lab, you run the whole pipeline and gate it yourself.</div>
+    <div class="title" style="max-width:28ch;color:#fff">Next: move a secret up the ladder, ship a schema change, and deploy a module</div>
     <ul class="checks" style="max-width:940px;margin-top:22px">
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>We-do (10:00).</b> Together: bring up the four-gateway stack, ship a change to dev, cut <span class="mono" style="color:#dbe4f0">release/1.0</span>, and watch the promote workflow re-tag (no rebuild) onto the test gateway.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>You-do (11:00, breakout rooms).</b> Solo: gate prod with a required reviewer, release <span class="mono" style="color:#dbe4f0">v1.0.0</span> through your own approval, then build the <span class="mono" style="color:#dbe4f0">tst</span> scope overlay and ship it through the pipeline.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>The payoff.</b> Three gateways, one digest, per-gateway personalities, all provable from your terminal with <span class="mono" style="color:#dbe4f0">docker inspect</span>.</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>We-do.</b> The leak-is-forever demo live in a scratch repo · one credential climbing the ladder: <span class="mono">.env</span> → secret file → referenced secret in the gateway · a migration written as an up/down pair and applied with <span class="mono">migrate up</span> · a walk through the Proferro pipeline to see all of it (and one flaw) in production.</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>You-do (breakout rooms).</b> Two warm-ups (secret triage, leak &amp; rotate drill), then Part 1: the secrets ladder on your own stack, with the deploy workflow writing the secret files · Part 2: write migration <span class="mono">0002</span> and watch the pipeline migrate dev before it ships your screen · Part 3: add a third-party module and a JDBC driver, and prove a fresh gateway boots complete.</span></li>
     </ul>
   </div>
 
-  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Next → We do together (10:00)</span></div>
+  <div class="foot"><span>Mustry Academy · CI/CD for Ignition</span><span>Next → We-do, then the assignment</span></div>
 </section>
 
 </div>
 
 <div class="hud"><div class="bar" id="bar"></div></div>
-<div class="pager" id="pager">01 / 18</div>
+<div class="pager" id="pager">01 / 22</div>
 <div class="hint" id="hint">↑ ↓ slides · ← → step the animation</div>
 
 <script>
@@ -932,7 +1105,7 @@ function bindControls(slideEl,ctrl){
   let step=0;
   const next=slideEl.querySelector('[data-act="next"]');
   const back=slideEl.querySelector('[data-act="back"]');
-  function sync(){ if(back)back.disabled=step<=0; if(next)next.disabled=step>=ctrl.max; ctrl.render(step); }
+  function sync(){ if(back)back.disabled=step<=0; if(next)next.disabled=step>=ctrl.max; ctrl.render(step,{next,back}); }
   function go(d){ const prev=step; step=Math.max(0,Math.min(ctrl.max,step+d)); if(step!==prev){sync();return true;} return false; }
   if(next)next.addEventListener('click',()=>go(1));
   if(back)back.addEventListener('click',()=>go(-1));
@@ -940,37 +1113,47 @@ function bindControls(slideEl,ctrl){
   sync();
   return {go,reset:ctrl.reset};
 }
-
-/* ---------- slide 5 (idx 4): the promotion pipeline ---------- */
-(function(){
-  const slide=slides[4];
+/* generic HTML-reveal controller factory: shows .reveal[data-step<=s], updates a lead line */
+function revealCtrl(slideIdx,leadSel,texts){
+  const slide=slides[slideIdx];
   const items=[...slide.querySelectorAll('.reveal')];
-  const lead=slide.querySelector('#pipe-step');
-  const texts=[
-    'Start: the <b>local</b> gateway, with bind mounts, your authoring loop from Lab 04. Nothing deployed yet.',
-    'A PR merges into <b>develop</b> → the image is <b>built once</b>, tagged <span class="mono">:sha</span> + <span class="mono">:dev</span>, and dev is recreated. Automatic, every merge.',
-    'A human decides "freeze" and pushes <b>release/1.0</b> → <span class="mono">:dev</span> is <b>re-tagged</b> to <span class="mono">:test</span> and the test gateway recreated. develop keeps moving; test doesn\'t.',
-    'Tag <b>v1.0.0</b> on main → <span class="mono">:test</span> (not :dev!) is re-tagged to <span class="mono">:v1.0.0</span> + <span class="mono">:prod</span>, but the deploy <b>waits for a required reviewer</b> before recreating prod.',
-    'The invariant: <b>one build, three deploys, zero rebuilds</b>. Prod\'s digest ≡ test\'s digest ≡ what dev ran at freeze time.'];
-  controllers.pipe={max:4,render(s){ items.forEach(it=>it.classList.toggle('show',+it.dataset.step<=s)); lead.innerHTML=texts[s]; }};
-})();
+  const lead=slide.querySelector(leadSel);
+  return {max:texts.length-1,render(s){
+    items.forEach(it=>it.classList.toggle('show',+it.dataset.step<=s));
+    lead.innerHTML=texts[s];
+  }};
+}
 
-/* ---------- slide 11 (idx 10): scope resolution ---------- */
-(function(){
-  const slide=slides[10];
-  const items=[...slide.querySelectorAll('.reveal')];
-  const lead=slide.querySelector('#scope-step');
-  const texts=[
-    'Step through the same lookup on three gateways.',
-    'The <b>dev</b> gateway boots with <span class="mono">mode=dev</span>: the lookup hits <span class="mono">dev/</span> first, found → <b>ignition_dev</b>.',
-    'The <b>prod</b> gateway runs the <b>same image</b>, boots <span class="mono">mode=prd</span> → <b>ignition_prd</b>. Same name, different database, zero rebuilds.',
-    'The <b>test</b> gateway boots <span class="mono">mode=tst</span>… but <span class="mono">tst/</span> doesn\'t exist. The lookup <b>silently falls back to core</b> and lands on the wrong database.',
-    'A missing overlay <b>inherits instead of erroring</b>. That silent fallback is exactly the bug you\'ll fix in the lab by building <span class="mono">tst/</span> yourself.'];
-  controllers.scope={max:4,render(s){ items.forEach(it=>it.classList.toggle('show',+it.dataset.step<=s)); lead.innerHTML=texts[s]; }};
-})();
+/* ---------- slide 5 (idx 4): a pushed secret is burned ---------- */
+controllers.burn=revealCtrl(4,'#burn-step',[
+  'Step through the leak everyone commits once, and why "removing" it fixes nothing.',
+  'Monday 09:14: an API key is committed <b>"just to make it work"</b>, and pushed.',
+  'Monday 09:40: panic, delete the line, commit, push. <b>Crisis averted?</b>',
+  'No. Commits are <b>immutable snapshots</b>: the key sits in history, in every clone, in every fork. <span class="mono">git log -p</span> reads it right back.',
+  'So: <b>rotate first</b>, scrub second, and add a scanner so the 09:14 commit never leaves a laptop again.'
+]);
+
+/* ---------- slide 6 (idx 5): the secrets ladder ---------- */
+controllers.ladder=revealCtrl(5,'#ladder-step',[
+  'Climb the ladder rung by rung, bottom to top.',
+  '<b>Rung 0, hardcoded.</b> In the repo, in history, in every fork. The rung you never stand on.',
+  '<b>Rung 1, <span class="mono">.env</span> + interpolation.</b> Out of Git, but still visible to <span class="mono">docker inspect</span> and the process env. This is where the labs have lived so far.',
+  '<b>Rung 2, file-based secrets.</b> A file at <span class="mono">/run/secrets/…</span>, not an env var. Invisible to inspect, filled per environment by the infra side, and it works the same in Compose and Kubernetes.',
+  '<b>Rung 3, Ignition 8.3 secret providers.</b> Gateway config stores a <b>reference</b> that a provider resolves from those files. Rungs 2 + 3 snapped together are the production pattern: it\'s how Wilms runs today.'
+]);
+
+/* ---------- slide 17 (idx 16): migration ledger ---------- */
+controllers.mig=revealCtrl(16,'#mig-step',[
+  'Build the migration ledger step by step.',
+  '<b>0001, the baseline.</b> The schema as it exists today, captured as the first up/down pair.',
+  '<b>0002, a change.</b> A new table, as a new pair of files. 0001 is <b>never edited</b>; history only appends.',
+  '<b>0003, another change.</b> Each pair is numbered; order is the contract.',
+  '<b><span class="mono">migrate up</span></b> compares the files against <b>schema_migrations</b> in the target DB and applies only what\'s missing, in order.',
+  'Versioned · append-only · paired up/down · synced per environment. <b>You already know this model: it\'s Git for schema.</b>'
+]);
 
 /* ============ wire controllers to their slides + reset on entry ============ */
-const ctrlBySlide={4:'pipe',10:'scope'};
+const ctrlBySlide={4:'burn',5:'ladder',16:'mig'};
 const bound={};
 for(const idx in ctrlBySlide){const name=ctrlBySlide[idx];bound[idx]=bindControls(slides[idx],controllers[name]);}
 // reset a slide's animation when you scroll onto it
