@@ -16,8 +16,8 @@ This lab reuses Lab 04's file-based deploy stack (three gateways, bundled self-h
 ## Quick start
 
 ```bash
-gh repo clone mustry-academy/cicd-lab-06-multi-gateway-deploy
-cd cicd-lab-06-multi-gateway-deploy
+gh repo clone mustry-academy/cicd-lab-06-secrets-db-and-modules
+cd cicd-lab-06-secrets-db-and-modules
 cp .env.example .env
 scripts/setup.sh       # brings up the stack, waits for all three gateways, prints credentials
 scripts/validate.sh    # must be green before you start the lab
