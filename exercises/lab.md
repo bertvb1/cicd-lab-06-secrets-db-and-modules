@@ -123,8 +123,19 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
   volume init.
 - **1B.** Create a **file-type secret provider** (`LabSecrets`) on the local
   gateway with secrets `POSTGRES_PASSWORD` and `REPORTING_PASSWORD`; re-point
-  **both** connections at their **referenced** secret; grep the exported config
-  to prove no value leaked.
+  **both** connections at their **referenced** secret (in every deployment
+  mode that overrides the password field). Then check `git status`: the UI
+  writes the provider into the **active mode's collection**
+  (`resources/loc/ignition/secret-provider/`), and `loc` never deploys —
+  develop would fault on a missing provider while local stays green. Move it
+  to core and rescan:
+
+  ```bash
+  mv services/config/resources/{loc,core}/ignition/secret-provider
+  ./scripts/scan.sh config    # still Valid, now from core
+  ```
+
+  Finally, grep the exported config to prove no value leaked.
 - **1C.** Build the fix for develop, in two halves: add the **dev
   deployment-mode override** for `TimescaleDB_Reports`
   (`…resources/dev/ignition/database-connection/TimescaleDB_Reports/config.json`,

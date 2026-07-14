@@ -423,8 +423,9 @@ docker exec lab06-gateway-loc ls -l /run/secrets/</pre></div>
       <div class="steps">
         <div class="step"><div class="ix">1</div><div class="tx">On the local gateway, create a <b>file-type secret provider</b> named <span class="inlinecode">LabSecrets</span>.</div></div>
         <div class="step"><div class="ix">2</div><div class="tx">Add two secrets to it: <span class="inlinecode">POSTGRES_PASSWORD</span> → <span class="inlinecode">/run/secrets/postgres_password</span> and <span class="inlinecode">REPORTING_PASSWORD</span> → <span class="inlinecode">/run/secrets/reporting_password</span>.</div></div>
-        <div class="step"><div class="ix">3</div><div class="tx">Re-point <b>both</b> connections' passwords at their <b>referenced</b> secret: <span class="inlinecode">TimescaleDB</span> → <span class="inlinecode">POSTGRES_PASSWORD</span>, <span class="inlinecode">TimescaleDB_Reports</span> → <span class="inlinecode">REPORTING_PASSWORD</span>. Test: both stay <b>Valid</b>.</div></div>
-        <div class="step"><div class="ix">4</div><div class="tx">Prove nothing leaked: grep the exported config for both password values → no hits. All that's committed is the <span class="inlinecode">"type": "Referenced"</span> shape from the teaching.</div></div>
+        <div class="step"><div class="ix">3</div><div class="tx">Re-point <b>both</b> database connections' passwords at their <b>referenced</b> secret: <span class="inlinecode">TimescaleDB</span> → <span class="inlinecode">POSTGRES_PASSWORD</span>, <span class="inlinecode">TimescaleDB_Reports</span> → <span class="inlinecode">REPORTING_PASSWORD</span>. Test: both stay <b>Valid</b>. Note: check all deployment modes.</div></div>
+        <div class="step"><div class="ix">4</div><div class="tx"><b>Check which collection the UI put the secret provider in</b> — <span class="inlinecode">git status</span>. The gateway writes it into the <b>active mode's</b> collection (<span class="inlinecode">resources/loc/</span>), and <span class="inlinecode">loc</span> never deploys: dev's chain is <span class="inlinecode">external → core → dev</span>. Locally everything stays green — develop would fault on a missing provider. <b>Move it to <span class="inlinecode">core</span></b> and rescan.</div></div>
+        <div class="step"><div class="ix">5</div><div class="tx">Prove nothing leaked: grep the exported config for both password values → no hits. All that's committed is the <span class="inlinecode">"type": "Referenced"</span> shape from the teaching.</div></div>
       </div>
       <div>
         <div class="code"><pre><span class="cm"># what lands in the committed config (per connection)</span>
@@ -436,14 +437,19 @@ docker exec lab06-gateway-loc ls -l /run/secrets/</pre></div>
   }
 }
 
-<span class="cm"># step 4: prove the export is clean</span>
+<span class="cm"># 4: the UI wrote the provider into loc — loc never deploys</span>
+git status   <span class="cm"># → resources/<span class="red">loc</span>/ignition/secret-provider/LabSecrets/</span>
+mv services/config/resources/<span class="cmd2">{loc,core}</span>/ignition/secret-provider
+./scripts/scan.sh config     <span class="cm"># gateway re-reads → still Valid</span>
+
+<span class="cm"># 5: prove the export is clean</span>
 grep -r "$(cat secrets/postgres_password.txt)" \
   services/config/ || echo "clean ✅"
 grep -r "$(cat secrets/reporting_password.txt)" \
   services/config/ || echo "clean ✅"</pre></div>
         <div class="goal" style="margin-top:18px">
           <span class="badge">Names travel</span>
-          <p>The provider and the references are ordinary config: they <b>deploy</b>. The files behind them don't, and mustn't. 1C is about getting those files onto the develop host.</p>
+          <p>The provider and the references are ordinary config: they <b>deploy — but only from a collection the target inherits</b> (<span class="inlinecode">core</span>). The files behind them don't travel, and mustn't. 1C is about getting those files onto the develop host.</p>
         </div>
       </div>
     </div>

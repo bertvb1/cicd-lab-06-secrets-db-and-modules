@@ -101,9 +101,30 @@ from that branch with `target=dev`.
 
 ### A4. Smaller checks / still open
 
-- **1B (LabSecrets provider) is created via the gateway UI** — no REST or
-  file shape verified for it yet. The first UI run writes the resource into
-  `services/config/` via the bind mount; capture and note the shape then.
+- **1B (LabSecrets provider) — VERIFIED via a real UI run (2026-07-13).**
+  Two findings:
+  - The UI writes the new provider into the **active deployment mode's
+    collection** — `resources/loc/ignition/secret-provider/LabSecrets/` on
+    the loc-mode local gateway — NOT into `core` (IA's platform deep-dive
+    claims UI-created resources land in Core; not true here). A loc-collection
+    provider resolves fine locally but never deploys (dev inherits
+    `external → core → dev`), so develop faults on a missing provider while
+    local stays green. Slide 1B step 4 + lab.md now teach the check-and-move
+    (`mv services/config/resources/{loc,core}/ignition/secret-provider` +
+    rescan — verified live: connections stay Valid after the move).
+  - The file shape is clean to commit (names + paths, no secret material):
+
+    ```json
+    {
+      "profile": { "type": "file" },
+      "settings": {
+        "files": {
+          "POSTGRES_PASSWORD": { "description": "", "filePath": "/run/secrets/postgres_password", "fileType": "CLEARTEXT" },
+          "REPORTING_PASSWORD": { "description": "", "filePath": "/run/secrets/reporting_password", "fileType": "CLEARTEXT" }
+        }
+      }
+    }
+    ```
 - The bundled runner loses its registration if its container is recreated
   without a fresh token (plain `docker compose up -d` after a config
   change): jobs queue forever. Re-run `scripts/setup.sh` — it mints a token
