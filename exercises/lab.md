@@ -81,7 +81,22 @@ migrations.
 Follows [`slides/assignment.html`](../slides/assignment.html) 1:1.
 
 ### Warm-up (together) — deploy to develop and prod, and check the db-connections
-Pre-flight first (`validate.sh` green). Then trigger `deploy.yml` for develop and
+Pre-flight first (`validate.sh` green). Then create the two **deploy
+environments** on your fork — *Settings → Environments* → `lab-gateway-dev`
+and `lab-gateway-prod` — each with a secret named `IGNITION_API_KEY` holding
+the `cicd:…` token from `.env.example` (the pre-provisioned scan token; the
+same key works on every gateway in this lab). `deploy.yml` picks its
+environment from the deploy target, so without them nothing deploys. From the
+CLI instead of the UI:
+
+```bash
+gh api -X PUT repos/<you>/cicd-lab-06-multi-gateway-deploy/environments/lab-gateway-dev
+gh api -X PUT repos/<you>/cicd-lab-06-multi-gateway-deploy/environments/lab-gateway-prod
+gh secret set IGNITION_API_KEY --env lab-gateway-dev  --body 'cicd:<token from .env.example>'
+gh secret set IGNITION_API_KEY --env lab-gateway-prod --body 'cicd:<token from .env.example>'
+```
+
+Now trigger `deploy.yml` for develop and
 for prod from the Actions tab and watch both runs go green. Now open the develop
 gateway, Config → Databases → Connections: both connections (`TimescaleDB` and
 `TimescaleDB_Reports`) are **Faulted**; prod shows the same. Write the diagnosis

@@ -303,18 +303,29 @@ scripts/setup.sh          <span class="cm"># three gateways + TimescaleDB + runn
     <div class="sechead"><span class="num warm">WARM-UP</span><div><div class="title">Deploy to develop and prod, and check the database connections</div><div class="lead">Before you change anything, run the pipeline end to end. It comes back green, and yet develop's database connections are broken. That gap is exactly what Part 1 fixes.</div></div></div>
     <div class="cols2">
       <div class="steps">
-        <div class="step"><div class="ix t">1</div><div class="tx"><b>Pre-flight:</b> <span class="inlinecode">scripts/validate.sh</span> must be <b>green</b> before you start — it's the same battery <span class="inlinecode">ci.yml</span> runs on every PR (JSON checks, <span class="inlinecode">.deployignore</span>, the secret scan), so a clean checkout that fails here means a setup problem, not a you problem.</div></div>
-        <div class="step"><div class="ix t">2</div><div class="tx"><b>Deploy to develop:</b> in your fork, Actions → <span class="inlinecode">deploy.yml</span> → <b>Run workflow</b>. Watch every step go green. Then do the same for prod.</div></div>
-        <div class="step"><div class="ix t">3</div><div class="tx"><b>Check the develop gateway:</b> <i>Config → Databases → Connections</i>. Both connections are <b>Faulted</b>: <span class="inlinecode">TimescaleDB</span> and <span class="inlinecode">TimescaleDB_Reports</span>.</div></div>
-        <div class="step"><div class="ix t">4</div><div class="tx"><b>Check prod:</b> same picture. Your local gateway meanwhile is fine.</div></div>
-        <div class="step"><div class="ix t">5</div><div class="tx">Write the diagnosis question in <span class="inlinecode">NOTES.local.md</span>: the pipeline is green and the gateway is broken. <b>What can a config-only deploy never carry?</b></div></div>
+        <div class="step"><div class="ix t">1</div><div class="tx"><b>Pre-flight:</b> <span class="inlinecode">./scripts/validate.sh</span> must be <b>green</b> before you start — it's the same battery <span class="inlinecode">ci.yml</span> runs on every PR (JSON checks, <span class="inlinecode">.deployignore</span>, the secret scan), so a clean checkout that fails here means a setup problem, not a you problem.</div></div>
+        <div class="step"><div class="ix t">2</div><div class="tx"><b>Create the two deploy environments</b> (in Github) <i>Settings → Environments</i> → <span class="inlinecode">lab-gateway-dev</span> and <span class="inlinecode">lab-gateway-prod</span> — and give <b>each</b> a secret named <span class="inlinecode">IGNITION_API_KEY</span>: the <span class="inlinecode">cicd:…</span> token from <span class="inlinecode">.env.example</span> (the pre-provisioned scan token; the same key works on every gateway in this lab). <span class="inlinecode">deploy.yml</span> picks its environment from the target.</div></div>
+        <div class="step"><div class="ix t">3</div><div class="tx"><b>Deploy to develop:</b> in your fork, Actions → <span class="inlinecode">deploy.yml</span> → <b>Run workflow</b>. Watch every step go green. Then do the same for prod.</div></div>
+        <div class="step"><div class="ix t">4</div><div class="tx"><b>Check the develop gateway:</b> <i>Connections → Databases → Connections</i>. Both connections are <b>Faulted</b>: <span class="inlinecode">TimescaleDB</span> and <span class="inlinecode">TimescaleDB_Reports</span>.</div></div>
+        <div class="step"><div class="ix t">5</div><div class="tx"><b>Check prod:</b> same picture. Your local gateway meanwhile is fine.</div></div>
+        <div class="step"><div class="ix t">6</div><div class="tx">Write the diagnosis question in <span class="inlinecode">NOTES.local.md</span>: the pipeline is green and the gateway is broken. <b>What can a config-only deploy never carry?</b></div></div>
       </div>
       <div>
-        <div class="code"><pre><span class="cm"># the deploy run says:</span>
+        <div class="code"><pre>
+./scripts/validate.sh
+
+<span class="cm"># the deploy run says:</span>
 <span class="grn">✅ validate   ✅ ship files   ✅ scan   ✅ verify</span>
 
+<span class="cm"># 2: environments + key, from the CLI (or click it
+#    together in Settings → Environments)</span>
+gh api -X PUT repos/<span class="cmd2">&lt;you&gt;</span>/cicd-lab-06-…/environments/lab-gateway-dev
+gh api -X PUT repos/<span class="cmd2">&lt;you&gt;</span>/cicd-lab-06-…/environments/lab-gateway-prod
+gh secret set IGNITION_API_KEY --env lab-gateway-dev  --body <span class="cmd2">'cicd:…'</span>
+gh secret set IGNITION_API_KEY --env lab-gateway-prod --body <span class="cmd2">'cicd:…'</span>
+
 <span class="cm"># the develop gateway says:</span>
-<span class="cm"># Config → Databases → Connections</span>
+<span class="cm"># Connections → Databases → Connections</span>
 TimescaleDB           <span class="red">Faulted</span>
 TimescaleDB_Reports   <span class="red">Faulted</span></pre></div>
         <div class="goal warn-g" style="margin-top:18px">
