@@ -265,7 +265,7 @@ body{
         <div class="step"><div class="ix t">2</div><div class="tx"><b>Fork &amp; clone.</b> <span class="inlinecode">gh repo fork … --clone</span> forks the lab to <i>your</i> account and clones your fork in one go. Prefer the website? Press <b>Fork</b> on github.com, then <span class="inlinecode">git clone</span> your fork. Check <span class="inlinecode">gh auth status</span> while you're at it — <span class="inlinecode">setup.sh</span> uses it to mint the runner's registration token; no PAT today.</div></div>
         <div class="step"><div class="ix t">3</div><div class="tx"><b>Enable Actions.</b> Open your fork's <b>Actions</b> tab and click "<i>I understand my workflows, enable them</i>". Skip this and nothing will ever deploy — not the warm-up, not your Part 1 fix.</div></div>
         <div class="step"><div class="ix t">4</div><div class="tx"><b>Copy the env file</b> with <span class="inlinecode">cp .env.example .env</span> and change <b>one line only</b>: point <span class="inlinecode">RUNNER_REPO_URL</span> at <b>your fork</b>. Leave everything else as shipped — the logins, the API keys, <i>and the database passwords</i>: they match the committed <span class="inlinecode">secrets/*.example</span> values that Part 1 builds on.</div></div>
-        <div class="step"><div class="ix t">5</div><div class="tx"><b>Check the remotes:</b> <span class="inlinecode">git remote -v</span> — <span class="inlinecode">origin</span> must show <b>your username</b>. Then <span class="inlinecode">code .</span> to open VS Code, and <span class="inlinecode">scripts/setup.sh</span> brings up the stack (three gateways + TimescaleDB + the runner).</div></div>
+        <div class="step"><div class="ix t">5</div><div class="tx"><b>Check the remotes:</b> <span class="inlinecode">git remote -v</span> — <span class="inlinecode">origin</span> must show <b>your username</b>. Then <span class="inlinecode">code .</span> to open VS Code, and <span class="inlinecode">./scripts/setup.sh</span> brings up the stack (three gateways + TimescaleDB + the runner).</div></div>
       </div>
       <div>
         <div class="code"><pre><span class="cm"># 1: the parent folder, all labs side by side</span>
@@ -286,7 +286,7 @@ cp .env.example .env
 <span class="cm"># 5: origin → YOUR username? good. Then VS Code + the stack</span>
 git remote -v
 code .
-scripts/setup.sh          <span class="cm"># three gateways + TimescaleDB + runner</span></pre></div>
+./scripts/setup.sh          <span class="cm"># three gateways + TimescaleDB + runner</span></pre></div>
       </div>
     </div>
   </div>
@@ -387,7 +387,6 @@ secrets:
     file: ./secrets/postgres_password.txt
   reporting_password:
     file: ./secrets/reporting_password.txt
-
 services:
   timescaledb:
     secrets: [postgres_password]
@@ -498,7 +497,7 @@ secrets/
       &gt; secrets/reporting_password.txt</pre></div>
         <div class="goal" style="margin-top:18px">
           <span class="badge">Nothing deployed yet</span>
-          <p>Everything so far is local edits plus GitHub settings. Develop is still Faulted, on purpose: <b>the fix only lands through the pipeline</b>, and that's 1D.</p>
+          <p>Everything so far is local edits plus GitHub settings. Develop is still Faulted, on purpose: <b>the fix only lands through the pipeline</b>, and that's the next step.</p>
         </div>
       </div>
     </div>
@@ -580,7 +579,7 @@ prod gateway — both <span class="grn">Valid</span> → ignition_prd</pre></div
     <div class="cols2">
       <div class="steps">
         <div class="step"><div class="ix p">1</div><div class="tx">Create <span class="inlinecode">db-migration/migrate/0002_add_downtime_log.up.sql</span> <b>and</b> <span class="inlinecode">…0002_add_downtime_log.down.sql</span>. The down undoes exactly what the up does.</div></div>
-        <div class="step"><div class="ix p">2</div><div class="tx">Apply it locally: <span class="inlinecode">scripts/migrate.sh up</span> (golang-migrate in Docker, like the production <span class="inlinecode">migrate.sh</span>).</div></div>
+        <div class="step"><div class="ix p">2</div><div class="tx">Apply it locally: <span class="inlinecode">./scripts/migrate.sh up</span> (golang-migrate in Docker, like the production <span class="inlinecode">migrate.sh</span>).</div></div>
         <div class="step"><div class="ix p">3</div><div class="tx">Read the ledger: the <span class="inlinecode">schema_migrations</span> table now says version <span class="inlinecode">2</span>, not dirty. Run <span class="inlinecode">migrate.sh up</span> again → <i>no change</i>: it only applies what's missing.</div></div>
         <div class="step"><div class="ix p">4</div><div class="tx">Now the rule the tool <b>won't</b> enforce for you: edit an already-applied migration file. Nothing complains, and that's the trap: other environments would silently diverge. Undo the edit; changes go in <span class="inlinecode">0003</span>. That's why the production repo's <span class="inlinecode">docs/MIGRATIONS.md</span> makes it a written rule.</div></div>
       </div>
@@ -597,7 +596,7 @@ CREATE TABLE downtime_log (
 DROP TABLE downtime_log;
 
 <span class="cm"># apply + inspect the ledger</span>
-scripts/migrate.sh up
+./scripts/migrate.sh up
 docker exec lab06-timescaledb psql -U ignition \
   -d ignition_loc -c 'SELECT * FROM schema_migrations;'</pre></div>
         <div class="goal" style="margin-top:18px">
@@ -681,7 +680,7 @@ docker exec lab06-timescaledb psql -U ignition \
         <div class="step"><div class="ix">1</div><div class="tx">Pick a module from <span class="inlinecode">third-party-modules/</span> that isn't enabled yet (the repo ships spares). Confirm the compose <span class="inlinecode">command:</span> passes <span class="inlinecode">-Dignition.gateway.externalModulesFolder</span>.</div></div>
         <div class="step"><div class="ix">2</div><div class="tx">Enable it in <span class="inlinecode">services/modules.json</span>: <span class="inlinecode">"onStartup": "enabled"</span> plus the <span class="inlinecode">certFingerprint</span> and <span class="inlinecode">licenseAgreementHash</span> from the exercise file.</div></div>
         <div class="step"><div class="ix">3</div><div class="tx">Ship it through the pipeline (PR → merge → deploy run).</div></div>
-        <div class="step"><div class="ix">4</div><div class="tx">Verify on dev: <i>Config → Modules</i> shows it <b>Running</b>. Nobody clicked an install dialog: that's the point.</div></div>
+        <div class="step"><div class="ix">4</div><div class="tx">Verify on dev: <i>Platform → System → Modules</i> shows it <b>Running</b>. Nobody clicked an install dialog: that's the point.</div></div>
         <div class="step"><div class="ix">5</div><div class="tx">Negative test: comment out the <span class="inlinecode">licenseAgreementHash</span>, redeploy, and see what a module without accepted terms does on a fresh boot. Put it back.</div></div>
       </div>
       <div>
