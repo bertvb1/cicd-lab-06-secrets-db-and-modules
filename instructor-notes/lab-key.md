@@ -190,7 +190,12 @@ exists in core** (the Reports connection's database target).
 
   ```yaml
   - name: Migrate database
-    run: scripts/migrate.sh up --database ignition_dev
+    run: |
+      case "$DEPLOY_TARGET" in
+        prod) db=ignition_prd ;;
+        *)    db=ignition_dev ;;
+      esac
+      ./scripts/migrate.sh up --database "$db"
   ```
   Debrief hook: the production repo runs migrations after the scan with
   continueOnError — screens referencing a table that doesn't exist yet, and

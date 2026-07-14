@@ -161,8 +161,23 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
 
 ### Part 2 — ship a schema change as a migration (±20 min)
 - **2A.** Write `db-migration/migrate/0002_add_downtime_log.up.sql` **and** `.down.sql`; apply with `scripts/migrate.sh up`; read `schema_migrations` (version 2, not dirty); re-run to see idempotency. Note: golang-migrate will NOT stop you editing an applied migration — that discipline is a written rule (the production repo's `docs/MIGRATIONS.md`), not a tool feature.
-- **2B.** Add the migrate step to `deploy.yml` **before** the ship step (and not `continueOnError`); PR with the migration **and** the screen that reads the new table together; watch the run migrate dev before shipping; prove it in dev's `schema_migrations`.
-- **Gate:** a green deploy run whose log shows migrate → ship → scan → verify, and dev's ledger at version 2.
+- **2B.** Add the migrate step to `deploy.yml` **before** the ship step (and
+  not `continueOnError`), deriving the database from the deploy target —
+  `$DEPLOY_TARGET` is already in the job's env, and a `target: prod`
+  promotion must migrate `ignition_prd`, not dev:
+
+  ```yaml
+  - name: Migrate database
+    run: |
+      case "$DEPLOY_TARGET" in
+        prod) db=ignition_prd ;;
+        *)    db=ignition_dev ;;
+      esac
+      ./scripts/migrate.sh up --database "$db"
+  ```
+
+  PR with the migration **and** the screen that reads the new table together; watch the run migrate dev before shipping; prove it in dev's `schema_migrations`.
+- **Gate:** a green deploy run whose log shows migrate → ship → scan → verify, and dev's ledger at version 2 (a later prod promotion migrates `ignition_prd` the same way).
 
 ### Part 3 — deploy a third-party module (±10 min)
 - Enable the spare `.modl` in `services/modules.json`, ship it through the pipeline, and verify Config → Modules shows it **Running** with no hands on the gateway. Negative test: remove the `licenseAgreementHash`, redeploy, observe, restore.

@@ -620,7 +620,7 @@ docker exec lab06-timescaledb psql -U ignition \
     <div class="sechead"><span class="num phase2">2B</span><div><div class="title">Add the migrate step to deploy.yml, before the ship step</div><div class="lead">Old screens tolerate a new table; new screens don't tolerate a missing one. So: migrate first, and a migrate failure stops the whole run.</div></div></div>
     <div class="cols2">
       <div class="steps">
-        <div class="step"><div class="ix p">1</div><div class="tx">Add the <b>Migrate database</b> step to <span class="inlinecode">.github/workflows/deploy.yml</span>, <b>before</b> the ship-files step, targeting the dev database. The DB password comes from the secret file Part 1 set up.</div></div>
+        <div class="step"><div class="ix p">1</div><div class="tx">Add the <b>Migrate database</b> step to <span class="inlinecode">.github/workflows/deploy.yml</span>, <b>before</b> the ship-files step — and <b>derive the database from the deploy target</b> (<span class="inlinecode">$DEPLOY_TARGET</span> is already in the job's env): a prod deploy must migrate <span class="inlinecode">ignition_prd</span>, not dev. The DB password comes from the secret file Part 1 set up.</div></div>
         <div class="step"><div class="ix p">2</div><div class="tx">Branch, add a small screen change that reads <span class="inlinecode">downtime_log</span>, and open a PR with <b>both</b> the migration and the screen: schema and screens travel in the same PR.</div></div>
         <div class="step"><div class="ix p">3</div><div class="tx">Merge and watch the run: validate → <b>migrate dev DB</b> → ship files → scan → verify.</div></div>
         <div class="step"><div class="ix p">4</div><div class="tx">Prove it was the pipeline, not you: query dev's <span class="inlinecode">schema_migrations</span>: version 2, applied during the run.</div></div>
@@ -628,7 +628,12 @@ docker exec lab06-timescaledb psql -U ignition \
       <div>
         <div class="code"><pre><span class="cm"># deploy.yml: the step you add</span>
 - name: Migrate database
-  run: scripts/migrate.sh up --database ignition_dev
+  run: |
+    case "$DEPLOY_TARGET" in
+      prod) db=<span class="cmd2">ignition_prd</span> ;;
+      *)    db=<span class="cmd2">ignition_dev</span> ;;
+    esac
+    ./scripts/migrate.sh up --database "$db"
 <span class="cm"># placed BEFORE the ship/scan steps, and NOT
 # continueOnError: a failed migration stops the run.</span>
 
@@ -637,7 +642,7 @@ docker exec lab06-timescaledb psql -U ignition \
   -d ignition_dev -c 'SELECT * FROM schema_migrations;'</pre></div>
         <div class="goal good-g" style="margin-top:18px">
           <span class="badge">✅ Part 2 gate</span>
-          <p>A green deploy run whose log shows <b>migrate before ship</b>, and dev's ledger at version 2. Bonus debrief point: the production pipeline you saw runs this step <b>after</b> the scan with <span class="inlinecode">continueOnError: true</span>. What can go wrong there that can't go wrong in yours?</p>
+          <p>A green deploy run whose log shows <b>migrate before ship</b>, and dev's ledger at version 2 — and because the step derives its database from the target, a later <span class="inlinecode">target: prod</span> promotion migrates <span class="inlinecode">ignition_prd</span> the same way. Bonus debrief point: the production pipeline you saw runs this step <b>after</b> the scan with <span class="inlinecode">continueOnError: true</span>. What can go wrong there that can't go wrong in yours?</p>
         </div>
       </div>
     </div>

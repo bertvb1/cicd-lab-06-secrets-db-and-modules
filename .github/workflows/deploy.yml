@@ -133,7 +133,9 @@ jobs:
       # Part 2B: add your "Migrate database" step HERE — BEFORE the ship
       # steps (old screens tolerate a new table; new screens don't tolerate a
       # missing one) and NOT continue-on-error (a failed migration must stop
-      # the run before anything ships).
+      # the run before anything ships). Derive the database from
+      # $DEPLOY_TARGET (env above): a prod deploy migrates ignition_prd,
+      # not the dev database.
 
       - name: Ship module manifest and third-party modules (restart if changed)
         # Part 3 of the lab: the module binary and its manifest entry are
