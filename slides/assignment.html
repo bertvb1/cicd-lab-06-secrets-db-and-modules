@@ -614,9 +614,9 @@ docker exec lab06-timescaledb psql -U ignition \
     <div class="sechead"><span class="num phase2">2B</span><div><div class="title">Add the migrate step to deploy.yml, before the ship step</div><div class="lead">Old screens tolerate a new table; new screens don't tolerate a missing one. So: migrate first, and a migrate failure stops the whole run.</div></div></div>
     <div class="cols2">
       <div class="steps">
-        <div class="step"><div class="ix p">1</div><div class="tx">Add the <b>Migrate database</b> step to <span class="inlinecode">.github/workflows/deploy.yml</span>, <b>before</b> the ship-files step — and <b>derive the database from the deploy target</b> (<span class="inlinecode">$DEPLOY_TARGET</span> is already in the job's env): a prod deploy must migrate <span class="inlinecode">ignition_prd</span>, not dev. The DB password comes from the secret file Part 1 set up.</div></div>
+        <div class="step"><div class="ix p">1</div><div class="tx">Add the <b>Migrate database</b> step to <span class="inlinecode">.github/workflows/deploy.yml</span> at the marked spot: <b>after</b> <span class="inlinecode">Ship secret files into gateway container</span> (the migration needs the password Part 1 materialized) and <b>before</b> <span class="inlinecode">Ship projects and config into gateway container</span>, so no screen lands ahead of its table. <b>Derive the database from the deploy target</b> (<span class="inlinecode">$DEPLOY_TARGET</span> is already in the job's env): a prod deploy must migrate <span class="inlinecode">ignition_prd</span>, not dev.</div></div>
         <div class="step"><div class="ix p">2</div><div class="tx">Branch, add a small screen change that reads <span class="inlinecode">downtime_log</span>, and open a PR with <b>both</b> the migration and the screen: schema and screens travel in the same PR.</div></div>
-        <div class="step"><div class="ix p">3</div><div class="tx">Merge and watch the run: validate → <b>migrate dev DB</b> → ship files → scan → verify.</div></div>
+        <div class="step"><div class="ix p">3</div><div class="tx">Merge and watch the run: secret files → <b>migrate dev DB</b> → ship projects and config → scan → verify.</div></div>
         <div class="step"><div class="ix p">4</div><div class="tx">Prove it was the pipeline, not you: query dev's <span class="inlinecode">schema_migrations</span>: version 2, applied during the run.</div></div>
       </div>
       <div>
@@ -628,8 +628,11 @@ docker exec lab06-timescaledb psql -U ignition \
       *)    db=<span class="cmd2">ignition_dev</span> ;;
     esac
     ./scripts/migrate.sh up --database "$db"
-<span class="cm"># placed BEFORE the ship/scan steps, and NOT
-# continueOnError: a failed migration stops the run.</span>
+<span class="cm"># placed between "Ship secret files into gateway
+# container" and "Ship projects and config into
+# gateway container" — and NOT continueOnError:
+# a failed migration stops the run before any
+# screen reaches the gateway.</span>
 
 <span class="cm"># step 4: the proof, against the dev database</span>
 docker exec lab06-timescaledb psql -U ignition \

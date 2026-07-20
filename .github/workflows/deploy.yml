@@ -130,13 +130,6 @@ jobs:
             echo "  shipped /run/secrets/$name"
           done
 
-      # Part 2B: add your "Migrate database" step HERE — BEFORE the ship
-      # steps (old screens tolerate a new table; new screens don't tolerate a
-      # missing one) and NOT continue-on-error (a failed migration must stop
-      # the run before anything ships). Derive the database from
-      # $DEPLOY_TARGET (env above): a prod deploy migrates ignition_prd,
-      # not the dev database.
-
       - name: Ship module manifest and third-party modules (restart if changed)
         # Part 3 of the lab: the module binary and its manifest entry are
         # deployable state. Unlike projects/config, modules only load at BOOT,
@@ -172,6 +165,14 @@ jobs:
           done
           echo "gateway did not come back after module restart" >&2
           exit 1
+
+      # Part 2B: add your "Migrate database" step HERE — after the secret
+      # files are on the gateway (the migration needs the DB password) and
+      # BEFORE "Ship projects and config" below (old screens tolerate a new
+      # table; new screens don't tolerate a missing one). NOT
+      # continue-on-error: a failed migration must stop the run before any
+      # screen ships. Derive the database from $DEPLOY_TARGET (env above):
+      # a prod deploy migrates ignition_prd, not the dev database.
 
       - name: Prune working tree per .deployignore
         # Patterns containing a slash → repo-relative path match.
