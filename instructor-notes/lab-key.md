@@ -16,21 +16,21 @@ Empirical findings from a live run (2026-07-13, Ignition 8.3.6):
   every student machine for exactly this reason.
 - Therefore the seed uses **custom keys**: `services/config/ignition/keys/`
   (root.json + kek.json, generated with `ignition-secrets-tool.sh`, root-key
-  passphrase `lab06-root-key-pass` passed to the loc gateway via
+  passphrase `lab06-root-key-pass` passed to the local-development gateway via
   `IGNITION_ROOT_KEY_PASSWORD` in docker-compose.yaml). The keys are
   deliberately COMMITTED (dummy values) so every student's local gateway
   decrypts the seeded ciphertexts, and excluded from the deploy payload via
-  `.deployignore`, so dev/prod cannot.
+  `.deployignore`, so test/production cannot.
 - A gateway with custom keys still decrypts default-key ciphertexts (the
   MQTT / OPC UA seeds keep working everywhere). A gateway WITHOUT the custom
   keys fails on custom-KEK ciphertexts with `Unable to decrypt ciphertext`.
 - Verified end state: local gateway — both connections + historian Valid
-  (live sessions for `ignition` and `reporting`); dev gateway after a
+  (live sessions for `ignition` and `reporting`); test gateway after a
   simulated deploy — `TimescaleDB` and `TimescaleDB_Reports` both Faulted
-  with `Unable to decrypt ciphertext` (the historian provider on dev faults
+  with `Unable to decrypt ciphertext` (the historian provider on test faults
   the same way; that's expected seed noise, mention it if someone spots it).
-- All custom-KEK ciphertexts (TimescaleDB core/loc/dev/prd, Reports core,
-  historian core/loc) encrypt the passwords that `db-init` actually sets:
+- All custom-KEK ciphertexts (TimescaleDB core/local-development/test/production, Reports core,
+  historian core/local-development) encrypt the passwords that `db-init` actually sets:
   `lab06-postgres-pw` (user `ignition`) and `lab06-reporting-pw` (user
   `reporting`) — same values as `secrets/*.example`.
 
@@ -53,15 +53,15 @@ that holds the committed keys and commit the rewritten config.json.
 
 All four flows ran green through the actual GitHub Actions pipeline:
 
-- **Warm-up**: `deploy.yml` green to dev (push + dispatch) and prod
-  (dispatch, `target=prod`); both gateways' connections Faulted with
+- **Warm-up**: `deploy.yml` green to test (push + dispatch) and production
+  (dispatch, `target=production`); both gateways' connections Faulted with
   `Unable to decrypt ciphertext`; local Valid.
 - **1C**: Materialize + the pre-wired "Ship secret files" step land
   `postgres_password` / `reporting_password` at `/run/secrets/` with mode
   600. (Connections-go-Valid still depends on 1B's provider, which is UI
   work — see A4.)
-- **2B**: `scripts/migrate.sh up --database ignition_dev` runs from inside
-  the containerized runner; dev's `schema_migrations` reached version 2
+- **2B**: `scripts/migrate.sh up --database ignition_test` runs from inside
+  the containerized runner; test's `schema_migrations` reached version 2
   before the ship steps.
 - **Part 3**: manifest change → detected → gateway restart →
   `Starting up module 'com.mussonindustrial.embr.periscope'` → Running.
@@ -70,9 +70,9 @@ All four flows ran green through the actual GitHub Actions pipeline:
 
 The runnable answer key lives on the **`rehearsal/lab-solutions`** branch
 (PR #2, draft, never to be merged): the Materialize + Migrate steps at their
-insertion points, the `TimescaleDB_Reports` dev override, the `0002` pair,
+insertion points, the `TimescaleDB_Reports` test override, the `0002` pair,
 and the enabled Periscope entry. To re-verify any flow, dispatch `deploy.yml`
-from that branch with `target=dev`.
+from that branch with `target=test`.
 
 ### A3. Module-manifest behaviour (all verified live — read before editing
 ### Part 3)
@@ -132,13 +132,12 @@ student never types the fingerprint/hash: the gateway computes them.
 - **1B (LabSecrets provider) — VERIFIED via a real UI run (2026-07-13).**
   Two findings:
   - The UI writes the new provider into the **active deployment mode's
-    collection** — `resources/loc/ignition/secret-provider/LabSecrets/` on
-    the loc-mode local gateway — NOT into `core` (IA's platform deep-dive
-    claims UI-created resources land in Core; not true here). A loc-collection
-    provider resolves fine locally but never deploys (dev inherits
-    `external → core → dev`), so develop faults on a missing provider while
+    collection** — `resources/local-development/ignition/secret-provider/LabSecrets/` on
+    the local gateway (booted in local-development mode) — NOT into `core` (IA's platform deep-dive
+    claims UI-created resources land in Core; not true here). A provider left in the local-development collection resolves fine locally but never deploys (test inherits
+    `external → core → test`), so develop faults on a missing provider while
     local stays green. Slide 1B step 4 + lab.md now teach the check-and-move
-    (`mv services/config/resources/{loc,core}/ignition/secret-provider` +
+    (`mv services/config/resources/{local-development,core}/ignition/secret-provider` +
     rescan — verified live: connections stay Valid after the move).
   - The file shape is clean to commit (names + paths, no secret material):
 
@@ -180,18 +179,18 @@ exists in core** (the Reports connection's database target).
 ### Part 1
 - 1A: top-level `secrets:` block backed by `./secrets/*.txt`,
   `POSTGRES_PASSWORD_FILE` + `REPORTING_PASSWORD_FILE` on the DB service,
-  both secrets attached to `gateway-loc`. `docker inspect` now clean.
+  both secrets attached to `gateway-local-development`. `docker inspect` now clean.
 - 1B: file-type provider `LabSecrets` with `POSTGRES_PASSWORD` →
   `/run/secrets/postgres_password`, `REPORTING_PASSWORD` →
   `/run/secrets/reporting_password`; both connections re-pointed to
   `{"type": "Referenced", ...}`. Grep proof: values appear nowhere under
   `services/config/`.
-- 1C: dev override at
-  `services/config/resources/dev/ignition/database-connection/TimescaleDB_Reports/config.json`
-  (`connectURL` → `...5432/ignition_dev`, copy the TimescaleDB dev override
-  incl. its `resource.json`) plus the `prd` twin (`connectURL` →
-  `...5432/ignition_prd`); GitHub env secrets `POSTGRES_PASSWORD` +
-  `REPORTING_PASSWORD` on BOTH `lab-gateway-dev` and `lab-gateway-prod`;
+- 1C: test override at
+  `services/config/resources/test/ignition/database-connection/TimescaleDB_Reports/config.json`
+  (`connectURL` → `...5432/ignition_test`, copy the TimescaleDB test override
+  incl. its `resource.json`) plus the `production` twin (`connectURL` →
+  `...5432/ignition_production`); GitHub env secrets `POSTGRES_PASSWORD` +
+  `REPORTING_PASSWORD` on BOTH `lab-gateway-test` and `lab-gateway-production`;
   Materialize step:
 
   ```yaml
@@ -205,11 +204,11 @@ exists in core** (the Reports connection's database target).
       printf '%s' "$POSTGRES_PASSWORD" > secrets/postgres_password.txt
       printf '%s' "$REPORTING_PASSWORD" > secrets/reporting_password.txt
   ```
-- 1D: branch `feature/fix-dev-db-connections` → PR (ci.yml: validate +
+- 1D: branch `feature/fix-test-db-connections` → PR (ci.yml: validate +
   secret scan) → merge → deploy.yml (materialize → ship secrets → ship
-  files → scan → verify) → both Valid, Reports on `ignition_dev` → promote
-  with a manual dispatch (`target: prod`) → both Valid on prod, Reports on
-  `ignition_prd`.
+  files → scan → verify) → both Valid, Reports on `ignition_test` → promote
+  with a manual dispatch (`target: production`) → both Valid on production, Reports on
+  `ignition_production`.
 
 ### Part 2
 - 2A: `0002_add_downtime_log.up.sql` / `.down.sql` (CREATE TABLE
@@ -218,14 +217,14 @@ exists in core** (the Reports connection's database target).
   stays silent; rule lives in `db-migration/MIGRATIONS.md`.
 - 2B: at the marked insertion point (before the ship steps, NOT
   continue-on-error), deriving the database from the deploy target so a
-  `target: prod` promotion migrates `ignition_prd`:
+  `target: production` promotion migrates `ignition_production`:
 
   ```yaml
   - name: Migrate database
     run: |
       case "$DEPLOY_TARGET" in
-        prod) db=ignition_prd ;;
-        *)    db=ignition_dev ;;
+        production) db=ignition_production ;;
+        *)    db=ignition_test ;;
       esac
       ./scripts/migrate.sh up --database "$db"
   ```
@@ -245,7 +244,7 @@ for the full verified behaviour.)
 
 ### Stretch
 - S1: internal provider = ciphertext in gateway config → faults after deploy
-  to dev (different keys). Escape hatch: `ignition-secrets-tool.sh`, shared
+  to test (different keys). Escape hatch: `ignition-secrets-tool.sh`, shared
   root key + KEK — the keys become the secret.
 - S2: expand-contract: 0003 add+backfill, screen switch, 0004 drop.
 - S3: gitleaks job with `fetch-depth: 0` (the scanner needs history, not the

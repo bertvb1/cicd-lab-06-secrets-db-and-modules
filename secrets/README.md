@@ -23,7 +23,7 @@ the file verbatim.
 
 ## Deployed environments (Part 1C)
 
-The dev/prod hosts never get these files from Git. The deploy workflow
+The test/production hosts never get these files from Git. The deploy workflow
 materializes them from GitHub environment secrets (`umask 177` + `printf`)
 right before shipping — see `.github/workflows/deploy.yml`.
 

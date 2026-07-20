@@ -192,8 +192,8 @@ body{
 .gwrow{display:flex;flex-direction:column;gap:12px}
 .gw{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px 16px;box-shadow:var(--shadow)}
 .gw .tag{font-family:'IBM Plex Mono';font-size:12px;font-weight:700;color:#fff;background:var(--teal);padding:5px 10px;border-radius:8px}
-.gw.dev .tag{background:var(--blue)}
-.gw.prod .tag{background:var(--navy)}
+.gw.test .tag{background:var(--blue)}
+.gw.production .tag{background:var(--navy)}
 .gw .v{font-family:'IBM Plex Mono';font-size:12.5px;color:var(--txt-dim)}
 .gw .v b{color:var(--txt)}
 .bigarr{font-family:'IBM Plex Mono';font-size:30px;color:var(--blue);text-align:center}
@@ -282,7 +282,7 @@ body{
     </ul>
     <div class="callout">
       <div class="lab" style="color:var(--blue)">Builds on</div>
-      <p>Everything today extends the <b>lab 04/05 stack</b>: the local → dev → prod gateways, the <code>.env.example</code> convention, and the <code>db-init/</code> folder you've already used without looking too closely at it.</p>
+      <p>Everything today extends the <b>lab 04/05 stack</b>: the local → test → production gateways, the <code>.env.example</code> convention, and the <code>db-init/</code> folder you've already used without looking too closely at it.</p>
     </div>
   </div>
 
@@ -428,7 +428,7 @@ git log -p | grep ak_live
       <div class="rung r3 reveal" data-step="4">
         <div class="rn">3</div>
         <div class="rt">Ignition 8.3 secret providers <span>gateway config <b>references</b> a secret instead of containing it</span></div>
-        <div class="leak"><b class="ok">Config becomes portable</b> across local / dev / prod. Rungs 2 + 3 together are how our production gateways run. Next slides.</div>
+        <div class="leak"><b class="ok">Config becomes portable</b> across local / test / production. Rungs 2 + 3 together are how our production gateways run. Next slides.</div>
       </div>
     </div>
   </div>
@@ -472,7 +472,7 @@ docker inspect lab06-timescaledb \
   | grep POSTGRES_PASSWORD        <span class="red"># plaintext</span></pre></div>
         <div class="callout" style="margin-top:14px">
           <div class="lab" style="color:var(--blue)">Verdict</div>
-          <p><b>Perfectly fine for a laptop lab.</b> Not where you stop for shared dev/prod machines. That's rung 2.</p>
+          <p><b>Perfectly fine for a laptop lab.</b> Not where you stop for shared test/production machines. That's rung 2.</p>
         </div>
       </div>
     </div>
@@ -513,7 +513,7 @@ services:
       <ul class="checks">
         <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Not in <span class="mono">docker inspect</span></b>, not in the process environment: the value only exists as a mounted file the process reads at startup.</span></li>
         <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Portable across platforms.</b> Compose <span class="mono">secrets:</span>, Kubernetes secret volumes and plain bind mounts all end at the same place: a small read-only file at a known path.</span></li>
-        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Clean handover to infra.</b> The repo commits the <b>paths and names</b> (plus <span class="mono">*.example</span> dummies); the infra team fills the real files per environment. Our production repo even ships committed dummy values for local dev, so a fresh clone just works.</span></li>
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Clean handover to infra.</b> The repo commits the <b>paths and names</b> (plus <span class="mono">*.example</span> dummies); the infra team fills the real files per environment. Our production repo even ships committed dummy values for local test, so a fresh clone just works.</span></li>
         <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>And CI can produce these files too:</b> a deploy workflow can write GitHub secrets into password files on the target before <span class="mono">compose up</span>. Same mechanism end to end: slide 09.</span></li>
       </ul>
     </div>
@@ -558,7 +558,7 @@ services:
           <li><span class="d" style="background:var(--warn)"></span>The value is <b>encrypted by this gateway</b> and stored inside its own config.</li>
           <li><span class="d" style="background:var(--warn)"></span>Fine for a single, hand-managed gateway: set it once in the UI, done.</li>
           <li><span class="d" style="background:var(--warn)"></span><b>The catch:</b> the ciphertext is encrypted against <i>that gateway's</i> keys. A committed ciphertext only decrypts on the gateway that produced it: on a fresh container it's a <b>broken reference</b>.</li>
-          <li><span class="d" style="background:var(--warn)"></span>For a pipeline that promotes the <i>same</i> config local → dev → prod: a dead end, <b>unless you manage the keys yourself</b>. That exception is slide 10.</li>
+          <li><span class="d" style="background:var(--warn)"></span>For a pipeline that promotes the <i>same</i> config local → test → production: a dead end, <b>unless you manage the keys yourself</b>. That exception is slide 10.</li>
         </ul>
       </div>
       <div class="does">
@@ -614,20 +614,20 @@ services:
           <span class="tag">local</span>
           <span class="v">resolves <b>MSSQL_PASSWORD</b> → <b>/run/secrets/MSSQL_PASSWORD</b> = <i>a committed dummy value, so a fresh clone just works</i></span>
         </div>
-        <div class="gw dev">
-          <span class="tag">dev</span>
-          <span class="v">resolves <b>MSSQL_PASSWORD</b> → <i>the file infra filled on the dev host</i></span>
+        <div class="gw test">
+          <span class="tag">test</span>
+          <span class="v">resolves <b>MSSQL_PASSWORD</b> → <i>the file infra filled on the test host</i></span>
         </div>
-        <div class="gw prod">
-          <span class="tag">prod</span>
-          <span class="v">resolves <b>MSSQL_PASSWORD</b> → <i>the prod value, which only prod ever holds</i></span>
+        <div class="gw production">
+          <span class="tag">production</span>
+          <span class="v">resolves <b>MSSQL_PASSWORD</b> → <i>the production value, which only production ever holds</i></span>
         </div>
       </div>
     </div>
 
     <div class="callout">
       <div class="lab" style="color:var(--blue)">Same pattern, everywhere</div>
-      <p>You already use this model in CI: <b>one workflow file</b>, and the <code>lab-gateway-dev</code> / <code>lab-gateway-prod</code> GitHub <b>environments</b> each supply their own <code>IGNITION_API_KEY</code>. Referenced secrets bring the identical idea inside the gateway.</p>
+      <p>You already use this model in CI: <b>one workflow file</b>, and the <code>lab-gateway-test</code> / <code>lab-gateway-production</code> GitHub <b>environments</b> each supply their own <code>IGNITION_API_KEY</code>. Referenced secrets bring the identical idea inside the gateway.</p>
     </div>
   </div>
 
@@ -651,7 +651,7 @@ services:
     </div>
     <div class="cols2">
       <ul class="checks">
-        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Environment-scoped, not repo-wide.</b> <span class="mono">lab-gateway-prod</span> holds the prod values; a PR build against dev can't even see them. Add <b>required reviewers</b> on the prod environment for a human gate.</span></li>
+        <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Environment-scoped, not repo-wide.</b> <span class="mono">lab-gateway-production</span> holds the production values; a PR build against test can't even see them. Add <b>required reviewers</b> on the production environment for a human gate.</span></li>
         <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>GitHub secrets → secret files.</b> The deploy job materializes each secret as a file on the target host, with tight permissions <b>before</b> the value lands, then <span class="mono">compose up</span> mounts them at <span class="mono">/run/secrets/</span>. One source of truth in GitHub, files on the box, references in the gateway: the whole ladder in one pipeline run.</span></li>
         <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Masking is a seatbelt, not a licence.</b> Actions replaces known secret values with <span class="mono">***</span> in logs, but don't <span class="mono">echo</span> them, don't <span class="mono">set -x</span> around them, don't write them into artifacts.</span></li>
         <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Forks don't get secrets.</b> <span class="mono">pull_request</span> runs from forks see empty secrets by design: one more reason deploys trigger on <span class="mono">push</span>/<span class="mono">tag</span>, never on PR.</span></li>
@@ -661,7 +661,7 @@ services:
 jobs:
   deploy:
     runs-on: [self-hosted, lab06]
-    environment: <span class="cmd2">lab-gateway-dev</span>   <span class="cm"># ← scoping</span>
+    environment: <span class="cmd2">lab-gateway-test</span>   <span class="cm"># ← scoping</span>
     steps:
       - name: Materialize secret files
         env:
@@ -759,24 +759,24 @@ gitleaks detect --source . <span class="cm"># zero findings = green</span></pre>
     </div>
     <div class="cols2">
       <div class="filecard">
-        <div class="fh">📄 what Git deploys to prod</div>
+        <div class="fh">📄 what Git deploys to production</div>
         <pre>Perspective view "DowntimeLog"
   ↳ named query: <span class="hl">SELECT reason, minutes
     FROM downtime_log ...</span>   <span class="cm">← new screen,
                               shipped ✅</span></pre>
       </div>
       <div class="filecard">
-        <div class="fh">🗄 what the prod database has</div>
-        <pre>ignition_prd=# \dt
+        <div class="fh">🗄 what the production database has</div>
+        <pre>ignition_production=# \dt
   batch_log      <span class="cm">✓</span>
   recipe_params  <span class="cm">✓</span>
   <span class="cm">downtime_log   ✗ created by hand
-                   on dev only, three
+                   on test only, three
                    weeks ago</span></pre>
       </div>
     </div>
     <ul class="checks" style="margin-top:20px;max-width:940px">
-      <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>"Worked on dev."</b> Because someone <i>manually</i> created the table on dev. Prod was never told. The screen 500s on release night.</span></li>
+      <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>"Worked on test."</b> Because someone <i>manually</i> created the table on test. Production was never told. The screen 500s on release night.</span></li>
       <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>No history.</b> Who changed the column type? When? Why? With hand-run SQL there is no equivalent of <span class="mono">git log</span> for your schema.</span></li>
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>The fix is the same fix as always:</b> make schema change <b>files in the repo</b>, reviewed in the same PR as the screens that need them, applied by the pipeline.</span></li>
     </ul>
@@ -807,8 +807,8 @@ volumes:
   - ./db-init:/docker-entrypoint-initdb.d:ro
 
 <span class="cm"># db-init/01-create-env-databases.sql</span>
-CREATE DATABASE ignition_dev;
-CREATE DATABASE ignition_prd;</pre></div>
+CREATE DATABASE ignition_test;
+CREATE DATABASE ignition_production;</pre></div>
         <div class="callout" style="margin-top:14px">
           <div class="lab">The one rule</div>
           <p>Postgres runs <code>/docker-entrypoint-initdb.d</code> <b>once, on first init of an empty data volume.</b> Volume already exists? <b>Nothing runs.</b> Ever again.</p>
@@ -817,7 +817,7 @@ CREATE DATABASE ignition_prd;</pre></div>
       <ul class="checks">
         <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>Great for:</b> creating the databases, the app user, extensions, the "day zero" shape of a <i>fresh</i> environment.</span></li>
         <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>Useless for:</b> changing a database that already has data. Editing <span class="mono">db-init/*.sql</span> after first boot changes <i>nothing</i> on any running environment.</span></li>
-        <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>The trap:</b> "I added the table to db-init and it worked!", because you also wiped your volume. Prod doesn't get its volume wiped.</span></li>
+        <li><span class="ck bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg></span><span><b>The trap:</b> "I added the table to db-init and it worked!", because you also wiped your volume. Production doesn't get its volume wiped.</span></li>
         <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>So:</b> day-zero shape → <span class="mono">db-init/</span>. Day-one-and-beyond change → <b>migrations</b> →</span></li>
       </ul>
     </div>
@@ -868,9 +868,9 @@ CREATE TABLE recipe_params (…);</pre>
       </div>
       <div class="store reveal" data-step="4">
         <div class="sh">schema_migrations, inside each database</div>
-        <div class="entry"><span class="key g">0001</span><span class="val"><b>baseline</b> · applied on dev and prod</span></div>
-        <div class="entry"><span class="key g">0002</span><span class="val"><b>add downtime log</b> · applied on dev and prod</span></div>
-        <div class="entry"><span class="key">0003</span><span class="val"><b>downtime add area</b> · <i>pending on prod, applies on next deploy</i></span></div>
+        <div class="entry"><span class="key g">0001</span><span class="val"><b>baseline</b> · applied on test and production</span></div>
+        <div class="entry"><span class="key g">0002</span><span class="val"><b>add downtime log</b> · applied on test and production</span></div>
+        <div class="entry"><span class="key">0003</span><span class="val"><b>downtime add area</b> · <i>pending on production, applies on next deploy</i></span></div>
       </div>
     </div>
 
@@ -920,7 +920,7 @@ CREATE TABLE recipe_params (…);</pre>
     <div class="cols2" style="margin-top:20px">
       <div class="callout" style="margin-top:0">
         <div class="lab" style="color:var(--good)">Why migrate before ship</div>
-        <p><b>Old screens tolerate a new table; new screens don't tolerate a missing one.</b> Expand-first ordering means a half-failed run leaves prod on old screens + new (unused) schema, a safe place to stop.</p>
+        <p><b>Old screens tolerate a new table; new screens don't tolerate a missing one.</b> Expand-first ordering means a half-failed run leaves production on old screens + new (unused) schema, a safe place to stop.</p>
       </div>
       <div class="callout" style="margin-top:0">
         <div class="lab">On failure</div>
@@ -1054,7 +1054,7 @@ ACCEPT_MODULE_CERTS:      <span class="cmd2">…, com.mussonindustrial.embr.char
     <div class="title" style="max-width:28ch;color:#fff">Next: move a secret up the ladder, ship a schema change, and deploy a module</div>
     <ul class="checks" style="max-width:940px;margin-top:22px">
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>We-do.</b> The leak-is-forever demo live in a scratch repo · one credential climbing the ladder: <span class="mono">.env</span> → secret file → referenced secret in the gateway · a migration written as an up/down pair and applied with <span class="mono">migrate up</span> · a walk through a real production pipeline to see all of it (and one flaw) live.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>You-do (breakout rooms).</b> One warm-up together (deploy to develop and prod, and find both db-connections Faulted), then Part 1: hook up a secret for the db-connection: secret files, a file-based provider, referenced secrets, and a full feature-branch → PR → pipeline deploy that fixes develop · Part 2: write migration <span class="mono">0002</span> and watch the pipeline migrate dev before it ships your screen · Part 3: add a third-party module and prove a fresh gateway boots complete.</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>You-do (breakout rooms).</b> One warm-up together (deploy to develop and production, and find both db-connections Faulted), then Part 1: hook up a secret for the db-connection: secret files, a file-based provider, referenced secrets, and a full feature-branch → PR → pipeline deploy that fixes develop · Part 2: write migration <span class="mono">0002</span> and watch the pipeline migrate test before it ships your screen · Part 3: add a third-party module and prove a fresh gateway boots complete.</span></li>
     </ul>
   </div>
 

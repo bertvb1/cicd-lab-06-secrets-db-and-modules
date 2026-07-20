@@ -1,17 +1,17 @@
 # Mustry Academy — Lab 06 (secrets, migrations, modules & JARs)
 # Three Ignition 8.3 gateways + one TimescaleDB with three logical databases:
 #
-#   gateway-loc    http://localhost:8088   bind-mounts ./projects + ./services/config
+#   gateway-local-development    http://localhost:8088   bind-mounts ./projects + ./services/config
 #                                          (working gateway — edits show
 #                                           up immediately on disk)
-#   gateway-dev    http://localhost:8089   projects/ + config/ bind-mounted from
-#                                          ./gateways/dev, populated by deploy.yml
-#   gateway-prod   http://localhost:8090   projects/ + config/ bind-mounted from
-#                                          ./gateways/prod, populated by deploy.yml
-#                                          (workflow_dispatch with target=prod)
+#   gateway-test    http://localhost:8089   projects/ + config/ bind-mounted from
+#                                          ./gateways/test, populated by deploy.yml
+#   gateway-production   http://localhost:8090   projects/ + config/ bind-mounted from
+#                                          ./gateways/production, populated by deploy.yml
+#                                          (workflow_dispatch with target=production)
 #
-#   timescaledb    localhost:5432          databases: ignition_loc, ignition_dev,
-#                                          ignition_prd (one per env), plus the
+#   timescaledb    localhost:5432          databases: ignition_local_development, ignition_test,
+#                                          ignition_production (one per env), plus the
 #                                          read-only `reporting` login (db-init/)
 #
 # Run it:
@@ -19,8 +19,8 @@
 #   scripts/setup.sh           # or:  docker compose up -d
 # Then:
 #   open http://localhost:8088   (local)
-#   open http://localhost:8089   (dev — empty until the first deploy run)
-#   open http://localhost:8090   (prod — empty until the first deploy run)
+#   open http://localhost:8089   (test — empty until the first deploy run)
+#   open http://localhost:8090   (production — empty until the first deploy run)
 #
 # NOTE (Part 1A of the lab): the database passwords below enter the containers
 # as ENVIRONMENT VARIABLES — anyone who can `docker inspect` reads them in
@@ -104,10 +104,10 @@ x-ignition-healthcheck: &ignition-healthcheck
 
 services:
   # --- local gateway: edits on the host show up here immediately --------------
-  gateway-loc:
+  gateway-local-development:
     image: inductiveautomation/ignition:8.3.6
-    container_name: lab06-gateway-loc
-    hostname: lab06-gateway-loc
+    container_name: lab06-gateway-local-development
+    hostname: lab06-gateway-local-development
     # Keep the image's own identity (uid 2003, gid 0): its data/ tree is
     # owned 2003:0 mode 775, so any OTHER primary gid loses write access and
     # the gateway fails to boot ("gateway.xml exists, but isnt readable or
@@ -138,7 +138,7 @@ services:
       # of the default key every Ignition installation shares. That's what
       # makes the committed embedded ciphertexts decrypt HERE and nowhere
       # else: .deployignore keeps the keys out of the deploy payload, so
-      # dev/prod fall back to their own keys and the connections fault —
+      # test/production fall back to their own keys and the connections fault —
       # the warm-up's whole point. This passphrase unlocks the root key.
       IGNITION_ROOT_KEY_PASSWORD: "${IGNITION_ROOT_KEY_PASSWORD:-lab06-root-key-pass}"
     command: >
@@ -148,7 +148,7 @@ services:
       wrapper.java.initmemory=256
       -Dignition.allowunsignedmodules=true
       -Dignition.gateway.externalModulesFolder=/third-party-modules
-      -Dignition.config.mode=loc
+      -Dignition.config.mode=local-development
     healthcheck: *ignition-healthcheck
     <<: *ignition-resources
     networks:
@@ -157,11 +157,11 @@ services:
       timescaledb:
         condition: service_healthy
 
-  # --- dev gateway: populated by deploy.yml (push to main) -------------------
-  gateway-dev:
+  # --- test gateway: populated by deploy.yml (push to main) -------------------
+  gateway-test:
     image: inductiveautomation/ignition:8.3.6
-    container_name: lab06-gateway-dev
-    hostname: lab06-gateway-dev
+    container_name: lab06-gateway-test
+    hostname: lab06-gateway-test
     # Keep the image's own identity (uid 2003, gid 0): its data/ tree is
     # owned 2003:0 mode 775, so any OTHER primary gid loses write access and
     # the gateway fails to boot ("gateway.xml exists, but isnt readable or
@@ -178,32 +178,32 @@ services:
       - "8089:8088"
       - "8061:8060"
     volumes:
-      - gateway-dev-data:/usr/local/bin/ignition/data
-      # projects/ and config/ are bind-mounted from ./gateways/dev (gitignored,
+      - gateway-test-data:/usr/local/bin/ignition/data
+      # projects/ and config/ are bind-mounted from ./gateways/test (gitignored,
       # created by setup.sh) so you can SEE what a deploy shipped straight from
-      # your laptop: `ls gateways/dev/projects`. The rest of data/ (internal db,
+      # your laptop: `ls gateways/test/projects`. The rest of data/ (internal db,
       # var/, certificates/) stays in the named volume above.
-      - ./gateways/dev/projects:/usr/local/bin/ignition/data/projects
-      - ./gateways/dev/config:/usr/local/bin/ignition/data/config
+      - ./gateways/test/projects:/usr/local/bin/ignition/data/projects
+      - ./gateways/test/config:/usr/local/bin/ignition/data/config
       # The module manifest is a PER-GATEWAY copy (seeded by setup.sh,
       # updated by deploy.yml) — NOT the repo's services/modules.json, which
-      # only the local gateway mounts. If dev shared the working-tree file,
-      # a local edit would leak into dev's next boot without a deploy, and
+      # only the local gateway mounts. If test shared the working-tree file,
+      # a local edit would leak into test's next boot without a deploy, and
       # the deploy workflow couldn't tell "already deployed" from "changed".
-      - ./gateways/dev/modules.json:/usr/local/bin/ignition/data/modules.json
+      - ./gateways/test/modules.json:/usr/local/bin/ignition/data/modules.json
       - ./third-party-modules:/third-party-modules
     environment:
       <<: *ignition-env
-      GATEWAY_ADMIN_USERNAME: "${GATEWAY_ADMIN_USERNAME_DEV:-admin}"
-      GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD_DEV:-password}"
+      GATEWAY_ADMIN_USERNAME: "${GATEWAY_ADMIN_USERNAME_TEST:-admin}"
+      GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD_TEST:-password}"
     command: >
-      -n lab06-dev
+      -n lab06-test
       -m 1024
       --
       wrapper.java.initmemory=256
       -Dignition.allowunsignedmodules=true
       -Dignition.gateway.externalModulesFolder=/third-party-modules
-      -Dignition.config.mode=dev
+      -Dignition.config.mode=test
     healthcheck: *ignition-healthcheck
     <<: *ignition-resources
     networks:
@@ -212,11 +212,11 @@ services:
       timescaledb:
         condition: service_healthy
 
-  # --- prod gateway: populated by deploy.yml (dispatch, target=prod) ------------------
-  gateway-prod:
+  # --- production gateway: populated by deploy.yml (dispatch, target=production) ------------------
+  gateway-production:
     image: inductiveautomation/ignition:8.3.6
-    container_name: lab06-gateway-prod
-    hostname: lab06-gateway-prod
+    container_name: lab06-gateway-production
+    hostname: lab06-gateway-production
     # Keep the image's own identity (uid 2003, gid 0): its data/ tree is
     # owned 2003:0 mode 775, so any OTHER primary gid loses write access and
     # the gateway fails to boot ("gateway.xml exists, but isnt readable or
@@ -233,26 +233,26 @@ services:
       - "8090:8088"
       - "8062:8060"
     volumes:
-      - gateway-prod-data:/usr/local/bin/ignition/data
-      # Same pattern as dev: deployed files are visible on the host under
-      # ./gateways/prod (gitignored, created by setup.sh).
-      - ./gateways/prod/projects:/usr/local/bin/ignition/data/projects
-      - ./gateways/prod/config:/usr/local/bin/ignition/data/config
-      # Per-gateway manifest copy — same reasoning as dev.
-      - ./gateways/prod/modules.json:/usr/local/bin/ignition/data/modules.json
+      - gateway-production-data:/usr/local/bin/ignition/data
+      # Same pattern as test: deployed files are visible on the host under
+      # ./gateways/production (gitignored, created by setup.sh).
+      - ./gateways/production/projects:/usr/local/bin/ignition/data/projects
+      - ./gateways/production/config:/usr/local/bin/ignition/data/config
+      # Per-gateway manifest copy — same reasoning as test.
+      - ./gateways/production/modules.json:/usr/local/bin/ignition/data/modules.json
       - ./third-party-modules:/third-party-modules
     environment:
       <<: *ignition-env
-      GATEWAY_ADMIN_USERNAME: "${GATEWAY_ADMIN_USERNAME_PROD:-admin}"
-      GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD_PROD:-password}"
+      GATEWAY_ADMIN_USERNAME: "${GATEWAY_ADMIN_USERNAME_PRODUCTION:-admin}"
+      GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD_PRODUCTION:-password}"
     command: >
-      -n lab06-prod
+      -n lab06-production
       -m 1024
       --
       wrapper.java.initmemory=256
       -Dignition.allowunsignedmodules=true
       -Dignition.gateway.externalModulesFolder=/third-party-modules
-      -Dignition.config.mode=prd
+      -Dignition.config.mode=production
     healthcheck: *ignition-healthcheck
     <<: *ignition-resources
     networks:
@@ -289,7 +289,7 @@ services:
     environment:
       POSTGRES_USER: "${POSTGRES_USER:-ignition}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-lab06-postgres-pw}"
-      POSTGRES_DB: ignition_loc
+      POSTGRES_DB: ignition_local_development
       REPORTING_PASSWORD: "${REPORTING_PASSWORD:-lab06-reporting-pw}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ignition}"]
@@ -306,11 +306,11 @@ services:
   # you never mint one by hand. Reuse the same PAT you created in Lab 04.
   #
   # The runner sits on the lab's compose network, so it reaches the gateways by
-  # service name (gateway-loc, gateway-dev, gateway-prod) — see the
+  # service name (gateway-local-development, gateway-test, gateway-production) — see the
   # IGNITION_URL defaults in .github/workflows/deploy.yml.
   #
   # Why /var/run/docker.sock is mounted: deploy.yml uses
-  # `docker cp` and `docker exec` to push project files INTO the dev/prod
+  # `docker cp` and `docker exec` to push project files INTO the test/production
   # gateway containers. That requires the runner to talk to the host's
   # Docker daemon. Lab convenience, NOT a production pattern.
   github-runner:
@@ -335,6 +335,6 @@ services:
 
 volumes:
   gateway-local-data:
-  gateway-dev-data:
-  gateway-prod-data:
+  gateway-test-data:
+  gateway-production-data:
   timescaledb-data:

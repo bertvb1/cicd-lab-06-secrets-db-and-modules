@@ -8,11 +8,11 @@
 #   scripts/migrate.sh up [N]                       # apply all (or N) pending
 #   scripts/migrate.sh down N                       # roll back N steps
 #   scripts/migrate.sh version                      # current position + dirty flag
-#   scripts/migrate.sh <cmd> --database ignition_dev   # target another env's DB
+#   scripts/migrate.sh <cmd> --database ignition_test   # target another env's DB
 #
 # The applied position is tracked in the target database's schema_migrations
 # table:
-#   docker exec lab06-timescaledb psql -U ignition -d ignition_loc \
+#   docker exec lab06-timescaledb psql -U ignition -d ignition_local_development \
 #     -c 'SELECT * FROM schema_migrations;'
 #
 # Password resolution, first hit wins (mirrors the secrets ladder of this lab):
@@ -37,7 +37,7 @@ usage() {
 }
 
 # ---- parse args -------------------------------------------------------------
-DATABASE="ignition_loc"
+DATABASE="ignition_local_development"
 CMD_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in

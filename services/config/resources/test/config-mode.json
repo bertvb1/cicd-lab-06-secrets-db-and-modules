@@ -1,0 +1,7 @@
+{
+  "title": "test",
+  "description": "test",
+  "enabled": true,
+  "inheritable": true,
+  "parent": "core"
+}

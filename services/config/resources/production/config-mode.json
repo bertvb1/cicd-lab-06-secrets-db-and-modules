@@ -1,0 +1,7 @@
+{
+  "title": "production",
+  "description": "production",
+  "enabled": true,
+  "inheritable": true,
+  "parent": "core"
+}

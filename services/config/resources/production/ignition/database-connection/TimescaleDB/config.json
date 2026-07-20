@@ -1,5 +1,5 @@
 {
-  "connectURL": "jdbc:postgresql://timescaledb:5432/ignition_local_development",
+  "connectURL": "jdbc:postgresql://timescaledb:5432/ignition_production",
   "connectionProps": "",
   "connectionResetParams": "",
   "defaultTransactionLevel": "DEFAULT",
@@ -13,11 +13,11 @@
   "password": {
     "type": "Embedded",
     "data": {
-      "ciphertext": "6acymW2_HyOBgr9Jmv0BKmud8oY",
-      "encrypted_key": "MzvSihSUR2L-6XS-lD2kw-JdIKs5fcDtuPP3m-1YZom7uOvHdG82RA",
-      "iv": "ctHvUgNU9EwpbNJw",
+      "ciphertext": "WuHCSlVwKNrvJZj0r0ZJuNwFFA",
+      "encrypted_key": "dMc4nCqnz-9E0cMa32zQ_RUy_aHxv17rgWPpFqjBIypdnVMqfN3aWg",
+      "iv": "utfZlY5lyvJuEf-j",
       "protected": "eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2R0NNIiwiaWF0IjoxNzgzOTQ2MDc3LCJraWQiOiIyYmI1YmVkOC0xN2FhLTQyZDktOGJhMC0zMzFjYmQ4ZDk3MzciLCJ6aXAiOiJERUYifQ",
-      "tag": "f4xHrORQeeqGsLDlD4e87A"
+      "tag": "iVxp5aTVI2oKyb3kZPb1Bw"
     }
   },
   "poolInitSize": 0,
@@ -30,7 +30,7 @@
   "testOnReturn": false,
   "testWhileIdle": false,
   "translator": "POSTGRES",
-  "username": "reporting",
+  "username": "ignition",
   "validationQuery": "SELECT 1",
   "validationSleepTime": 10000
 }

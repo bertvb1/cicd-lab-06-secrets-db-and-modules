@@ -10,7 +10,7 @@
 #   - waits for ALL THREE gateways to become RUNNING
 #   - triggers an initial projects + config scan against the LOCAL gateway
 #     (only if its API key in .env is real, not the example placeholder).
-#     Dev and prod start empty by design — they get populated by the deploy
+#     Test and production start empty by design — they get populated by the deploy
 #     and release workflows.
 #
 # Re-run safely — every step is idempotent.
@@ -67,9 +67,9 @@ echo ""
 echo "This script initializes the development environment:"
 echo "  - three Ignition 8.3 gateways:"
 echo "      local  http://localhost:8088   (your working gateway, bind-mounted from the repo)"
-echo "      dev    http://localhost:8089   (populated by deploy.yml on push to main)"
-echo "      prod   http://localhost:8090   (populated by deploy.yml run with target=prod)"
-echo "  - one TimescaleDB on localhost:5432 hosting ignition_loc / ignition_dev / ignition_prd"
+echo "      test    http://localhost:8089   (populated by deploy.yml on push to main)"
+echo "      production   http://localhost:8090   (populated by deploy.yml run with target=production)"
+echo "  - one TimescaleDB on localhost:5432 hosting ignition_local_development / ignition_test / ignition_production"
 echo ""
 
 
@@ -144,10 +144,10 @@ runner_pat_reminder() {
 
 runner_pat_reminder
 
-# ---- Dev/prod gateway state dirs + API-token pre-seed ----------------------
-# dev and prod bind-mount ./gateways/<gw>/{projects,config} (see
+# ---- Test/production gateway state dirs + API-token pre-seed ----------------------
+# test and production bind-mount ./gateways/<gw>/{projects,config} (see
 # docker-compose.yaml) so you can verify a deploy landed straight from the
-# host: `ls gateways/dev/projects`. Create the dirs before compose up and
+# host: `ls gateways/test/projects`. Create the dirs before compose up and
 # pre-seed the committed `cicd` API token into config/ BEFORE the gateway's
 # first boot: the scan API only accepts tokens the gateway has LOADED, and
 # the deploy workflow cannot scan its own token in (chicken-and-egg — the
@@ -162,7 +162,7 @@ seed_gateway_state() {
     # dir that has no manifest ("Resource collection path ... exists but is
     # not empty" -> FAULTED).
     manifest_src="$PROJECT_ROOT/services/config/resources/core/config-mode.json"
-    for gw in dev prod; do
+    for gw in test production; do
         mkdir -p "$PROJECT_ROOT/gateways/$gw/projects" "$PROJECT_ROOT/gateways/$gw/config"
         core_dst="$PROJECT_ROOT/gateways/$gw/config/resources/core"
         if [ -d "$token_src" ] && [ -f "$manifest_src" ] \
@@ -186,7 +186,7 @@ seed_gateway_state
 # ---- Stale-volume detection (identity/volume desync) -----------------------
 # A gateway's internal identity (user-source/default, identity-provider/
 # default) lives in its CONFIG TREE — bind mounts: local -> services/config,
-# dev/prod -> gateways/<gw>/config — but the "already commissioned" marker
+# test/production -> gateways/<gw>/config — but the "already commissioned" marker
 # lives in its data VOLUME. Docker Compose reuses volumes by project (folder)
 # name, so a fresh clone sitting next to volumes from an earlier stack boots
 # gateways that skip commissioning yet have no identity on disk: the web UI
@@ -207,7 +207,7 @@ reset_desynced_gateways() {
     for gw in "${LAB_GATEWAYS[@]}"; do
         case "$gw" in
             local) identity_dir="$PROJECT_ROOT/services/config/resources/core/ignition/user-source/default"
-                   svc="gateway-loc" ;;
+                   svc="gateway-local-development" ;;
             *)     identity_dir="$PROJECT_ROOT/gateways/$gw/config/resources/core/ignition/user-source/default"
                    svc="gateway-$gw" ;;
         esac
@@ -217,7 +217,7 @@ reset_desynced_gateways() {
             echo "  (fresh clone next to an old stack?) — recreating it so commissioning runs again."
             # Remove the compose container first, or 'docker volume rm' below
             # fails with "volume is in use". The compose service is
-            # gateway-loc/-dev/-prod, NOT ignition-<gw>.
+            # gateway-local-development/-test/-production, NOT ignition-<gw>.
             docker compose rm -sf "$svc" >/dev/null 2>&1 || true
             # Belt-and-suspenders: kill any other (orphaned) container still
             # holding the volume — e.g. a Created container from a half-run
@@ -240,7 +240,7 @@ reset_desynced_gateways
 # identity, then rewrites security-properties to point at it — permanent git
 # noise AND an auth profile no other gateway has. If it finds NO
 # security-properties, it creates the `default` user source + identity
-# provider, exactly like dev/prod do. So: move the committed file aside for
+# provider, exactly like test/production do. So: move the committed file aside for
 # the first boot, then put it back (it names systemAuthProfile=default, which
 # now exists, and carries the APIToken scan permissions) and restart local.
 SECPROPS_DIR="$PROJECT_ROOT/services/config/resources/core/ignition/security-properties"
@@ -275,7 +275,7 @@ restore_secprops_after_commissioning() {
 stash_secprops_for_commissioning
 
 # ---- Start the stack ------------------------------------------------------
-existing_id="$(docker compose ps -q gateway-loc 2>/dev/null || true)"
+existing_id="$(docker compose ps -q gateway-local-development 2>/dev/null || true)"
 if [ -n "$existing_id" ]; then
     echo -e "${YELLOW}Stack already running — 'docker compose up -d' will be a no-op or apply changes.${NC}"
 fi
@@ -375,7 +375,7 @@ repair_api_perms() {
 repair_api_perms
 
 # ---- Initial scan (local only) -------------------------------------------
-# Local has projects on disk from the bind mount; dev/prod start empty by
+# Local has projects on disk from the bind mount; test/production start empty by
 # design (workflows will populate them).
 initial_scan() {
     if [ ! -x "$SCRIPT_DIR/scan.sh" ]; then
@@ -406,10 +406,10 @@ initial_scan
 # Pull the actual values from .env so the output matches reality.
 ACTUAL_LOCAL_USER="$(env_value GATEWAY_ADMIN_USERNAME_LOCAL)"
 ACTUAL_LOCAL_PASS="$(env_value GATEWAY_ADMIN_PASSWORD_LOCAL)"
-ACTUAL_DEV_USER="$(env_value GATEWAY_ADMIN_USERNAME_DEV)"
-ACTUAL_DEV_PASS="$(env_value GATEWAY_ADMIN_PASSWORD_DEV)"
-ACTUAL_PROD_USER="$(env_value GATEWAY_ADMIN_USERNAME_PROD)"
-ACTUAL_PROD_PASS="$(env_value GATEWAY_ADMIN_PASSWORD_PROD)"
+ACTUAL_TEST_USER="$(env_value GATEWAY_ADMIN_USERNAME_TEST)"
+ACTUAL_TEST_PASS="$(env_value GATEWAY_ADMIN_PASSWORD_TEST)"
+ACTUAL_PRODUCTION_USER="$(env_value GATEWAY_ADMIN_USERNAME_PRODUCTION)"
+ACTUAL_PRODUCTION_PASS="$(env_value GATEWAY_ADMIN_PASSWORD_PRODUCTION)"
 ACTUAL_PG_USER="$(env_value POSTGRES_USER)"
 ACTUAL_PG_PASS="$(env_value POSTGRES_PASSWORD)"
 
@@ -418,12 +418,12 @@ echo -e "${GREEN}Setup complete!${NC}"
 echo ""
 printf "Gateways:\n"
 printf "  %-8s  %-23s  user=%s  pass=%s\n" "local"  "http://localhost:8088"  "${ACTUAL_LOCAL_USER:-admin}"  "${ACTUAL_LOCAL_PASS:-(see .env)}"
-printf "  %-8s  %-23s  user=%s  pass=%s\n" "dev"    "http://localhost:8089"  "${ACTUAL_DEV_USER:-admin}"    "${ACTUAL_DEV_PASS:-(see .env)}"
-printf "  %-8s  %-23s  user=%s  pass=%s\n" "prod"   "http://localhost:8090"  "${ACTUAL_PROD_USER:-admin}"   "${ACTUAL_PROD_PASS:-(see .env)}"
+printf "  %-8s  %-23s  user=%s  pass=%s\n" "test"    "http://localhost:8089"  "${ACTUAL_TEST_USER:-admin}"    "${ACTUAL_TEST_PASS:-(see .env)}"
+printf "  %-8s  %-23s  user=%s  pass=%s\n" "production"   "http://localhost:8090"  "${ACTUAL_PRODUCTION_USER:-admin}"   "${ACTUAL_PRODUCTION_PASS:-(see .env)}"
 echo ""
 echo "TimescaleDB:"
 echo "  Host: localhost  Port: 5432"
-echo "  Databases: ignition_loc, ignition_dev, ignition_prd"
+echo "  Databases: ignition_local_development, ignition_test, ignition_production"
 echo "  Username: ${ACTUAL_PG_USER:-ignition}  Password: ${ACTUAL_PG_PASS:-(see .env)}"
 echo ""
 if is_placeholder_api_key; then
@@ -432,14 +432,14 @@ if is_placeholder_api_key; then
     echo "  copy the IGNITION_API_KEY_* lines from .env.example into .env — the same key"
     echo "  works on all three gateways."
     echo "  The deploy/release workflows take their keys from GitHub secrets on"
-    echo "  the lab-gateway-dev / lab-gateway-prod environments — set those too"
+    echo "  the lab-gateway-test / lab-gateway-production environments — set those too"
     echo "  when you're ready to run CI."
     echo ""
 fi
 echo "Useful commands:"
 echo "  docker compose ps                          # check container state"
-echo "  docker logs -f lab06-gateway-loc        # tail local gateway logs"
+echo "  docker logs -f lab06-gateway-local-development        # tail local gateway logs"
 echo "  scripts/scan.sh both               # rescan local (default)"
-echo "  scripts/scan.sh both --gateway dev # rescan dev"
+echo "  scripts/scan.sh both --gateway test # rescan test"
 echo "  scripts/teardown.sh                        # stop the stack"
 echo "  scripts/teardown.sh --volumes              # stop and wipe persistent data"

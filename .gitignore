@@ -70,14 +70,14 @@ venv/
 # holds the admin password hash!), its identity provider, and the OPC-UA
 # module's user source belong to ONE gateway. Committing them ships your
 # local gateway's admin credentials to every gateway you deploy to — and
-# locks everyone out of dev/prod. Identity resources you configure yourself
+# locks everyone out of test/production. Identity resources you configure yourself
 # (a database or AD user source, a SAML/OIDC identity provider) hold no
 # password data and ARE tracked and deployed like any other config.
 **/config/resources/core/ignition/user-source/default/
 **/config/resources/core/ignition/user-source/opcua-module/
 **/config/resources/core/ignition/identity-provider/default/
 
-# Dev/prod gateway state (bind mounts written by the gateways + CI deploys,
+# Test/production gateway state (bind mounts written by the gateways + CI deploys,
 # see docker-compose.yaml). The README stays so the folder is visible in
 # every clone.
 /gateways/*

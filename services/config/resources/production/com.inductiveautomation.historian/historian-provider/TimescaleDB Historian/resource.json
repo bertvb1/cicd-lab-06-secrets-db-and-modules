@@ -1,0 +1,19 @@
+{
+  "scope": "A",
+  "description": "TimescaleDB historian for production deployment mode",
+  "version": 1,
+  "restricted": false,
+  "overridable": true,
+  "files": [
+    "config.json"
+  ],
+  "attributes": {
+    "lastModification": {
+      "actor": "admin",
+      "timestamp": "2026-05-21T13:28:20Z"
+    },
+    "uuid": "a1b2c3d4-0003-4aaa-8000-000000000003",
+    "lastModificationSignature": "8ada1df1dbda3961eb6980c41ebb287519a576c107091b36f0cd943f3a32526b",
+    "enabled": true
+  }
+}

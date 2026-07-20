@@ -43,7 +43,7 @@ services/config/resources/local/
 services/config/resources/core/ignition/user-source/default/
 services/config/resources/core/ignition/user-source/opcua-module/
 services/config/resources/core/ignition/identity-provider/default/
-# Dev/prod gateway state (bind mounts) — never part of a deploy payload
+# Test/production gateway state (bind mounts) — never part of a deploy payload
 gateways/
 
 # OS noise
@@ -55,6 +55,6 @@ Thumbs.db
 .idea/
 *.swp
 
-# Compose / dev-only files
+# Compose / test-only files
 docker-compose.yaml
 .env

@@ -3,7 +3,7 @@
 # first-boot auto-commissioning wipes from core security-properties.
 #
 # Why this exists: the lab pre-provisions an api-token (`cicd`) on every
-# gateway (local via the repo bind mount, dev/prod via setup.sh's pre-seed).
+# gateway (local via the repo bind mount, test/production via setup.sh's pre-seed).
 # But on a gateway's very FIRST boot, auto-commissioning (driven by
 # GATEWAY_ADMIN_USERNAME/PASSWORD) writes a fresh security-properties with
 # readPermissions/writePermissions set to Roles/Administrator only — which an
@@ -19,16 +19,16 @@
 # the 403 and runs this automatically).
 #
 # Usage:
-#   scripts/fix-gateway-api-perms.sh dev
-#   scripts/fix-gateway-api-perms.sh prod
-#   scripts/fix-gateway-api-perms.sh local dev prod
+#   scripts/fix-gateway-api-perms.sh test
+#   scripts/fix-gateway-api-perms.sh production
+#   scripts/fix-gateway-api-perms.sh local test production
 
 set -euo pipefail
 
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
 command -v python3 >/dev/null || { echo -e "${RED}python3 is required${NC}" >&2; exit 1; }
-[ $# -ge 1 ] || { echo "Usage: $0 <local|dev|prod> [more gateways...]" >&2; exit 2; }
+[ $# -ge 1 ] || { echo "Usage: $0 <local|test|production> [more gateways...]" >&2; exit 2; }
 
 SECPROPS_PATH=/usr/local/bin/ignition/data/config/resources/core/ignition/security-properties/config.json
 

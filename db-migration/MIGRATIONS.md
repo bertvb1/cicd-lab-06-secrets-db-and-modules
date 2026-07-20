@@ -33,8 +33,8 @@ Together they keep every environment replayable from zero: a fresh database +
 ## Day-to-day
 
 ```bash
-scripts/migrate.sh up                          # apply pending on ignition_loc
-scripts/migrate.sh up --database ignition_dev  # apply pending on dev
+scripts/migrate.sh up                          # apply pending on ignition_local_development
+scripts/migrate.sh up --database ignition_test  # apply pending on test
 scripts/migrate.sh down 1                      # roll back one step
 scripts/migrate.sh version                     # where am I?
 ```
@@ -42,7 +42,7 @@ scripts/migrate.sh version                     # where am I?
 The ledger lives in the target database:
 
 ```bash
-docker exec lab06-timescaledb psql -U ignition -d ignition_loc \
+docker exec lab06-timescaledb psql -U ignition -d ignition_local_development \
   -c 'SELECT * FROM schema_migrations;'
 ```
 

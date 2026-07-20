@@ -1,7 +1,0 @@
-{
-  "title": "prd",
-  "description": "prd",
-  "enabled": true,
-  "inheritable": true,
-  "parent": "core"
-}

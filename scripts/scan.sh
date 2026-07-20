@@ -12,13 +12,13 @@
 # Usage:
 #   scripts/scan.sh                          # both, against local
 #   scripts/scan.sh projects                 # projects only
-#   scripts/scan.sh both --gateway dev       # both, against dev gateway
-#   scripts/scan.sh --gateway prod config    # config only, against prod
+#   scripts/scan.sh both --gateway test       # both, against test gateway
+#   scripts/scan.sh --gateway production config    # config only, against production
 #
 # Gateways:
 #   local   http://localhost:8088   (default — student's bind-mounted gateway)
-#   dev     http://localhost:8089   (deploy.yml target)
-#   prod    http://localhost:8090   (deploy.yml target=prod)
+#   test     http://localhost:8089   (deploy.yml target)
+#   production    http://localhost:8090   (deploy.yml target=production)
 #
 # Env (override the gateway defaults when needed):
 #   IGNITION_URL          full URL; if set, wins over --gateway preset
@@ -74,9 +74,9 @@ while [ $# -gt 0 ]; do
 done
 
 case "$gateway" in
-  local|dev|prod) ;;
+  local|test|production) ;;
   *)
-    echo "ERROR: unknown gateway: $gateway (expected: local | dev | prod)" >&2
+    echo "ERROR: unknown gateway: $gateway (expected: local | test | production)" >&2
     exit 2
     ;;
 esac

@@ -1,7 +1,0 @@
-{
-  "title": "dev",
-  "description": "dev",
-  "enabled": true,
-  "inheritable": true,
-  "parent": "core"
-}

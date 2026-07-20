@@ -1,0 +1,7 @@
+{
+  "title": "local-development",
+  "description": "local-development",
+  "enabled": true,
+  "inheritable": true,
+  "parent": "core"
+}

@@ -4,7 +4,7 @@
 # Usage:
 #   scripts/teardown.sh              # docker compose down (keeps volumes)
 #   scripts/teardown.sh --volumes    # also wipes named volumes AND the
-#                                    # ./gateways/ dev/prod state — DATA LOSS
+#                                    # ./gateways/ test/production state — DATA LOSS
 #   scripts/teardown.sh --help
 
 set -euo pipefail
@@ -31,7 +31,7 @@ done
 
 if [ "$REMOVE_VOLUMES" = "true" ]; then
   echo -e "${YELLOW}This will wipe named volumes (gateway internal DB, TimescaleDB data)${NC}"
-  echo -e "${YELLOW}and the dev/prod gateway state under ./gateways/.${NC}"
+  echo -e "${YELLOW}and the test/production gateway state under ./gateways/.${NC}"
   if [ -t 0 ] && [ "${CI:-}" != "1" ]; then
     read -p "Continue? (y/N): " -n 1 -r
     echo
@@ -42,9 +42,9 @@ if [ "$REMOVE_VOLUMES" = "true" ]; then
   fi
   echo -e "${GREEN}Stopping stack and removing volumes...${NC}"
   docker compose down -v
-  # The dev/prod projects/ + config/ live on the host (bind mounts), so
+  # The test/production projects/ + config/ live on the host (bind mounts), so
   # `down -v` alone would leave stale gateway state behind for the next boot.
-  rm -rf "$PROJECT_ROOT/gateways/dev" "$PROJECT_ROOT/gateways/prod"
+  rm -rf "$PROJECT_ROOT/gateways/test" "$PROJECT_ROOT/gateways/production"
   # Same for the local gateway's own (gitignored) internal identity: wiping
   # its volume means commissioning runs again on the next boot, and leftover
   # identity files would make it create a temp_N profile instead of

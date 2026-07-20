@@ -19,10 +19,10 @@ are one of the first three.
 - Check logs (note: use `docker logs`, the container name — *not* `docker compose logs`, which wants
   the service name):
   ```bash
-  docker logs --tail 200 lab06-gateway-loc     # or -dev / -prod
+  docker logs --tail 200 lab06-gateway-local-development     # or -test / -production
   ```
 - **Trial expired.** Each gateway runs in 2-hour trial mode. After it lapses the gateway stops
-  serving. Reset via *Gateway → Config → Licensing → Reset Trial* (unlimited, legal for dev).
+  serving. Reset via *Gateway → Config → Licensing → Reset Trial* (unlimited, legal for test).
 
 ## `git status` shows lots of `resource.json` changes
 
@@ -69,8 +69,8 @@ git update-index --no-skip-worktree <path>
 The `IGNITION_API_KEY` for that environment is missing, wrong, or under-scoped. Generate the key
 **on the target gateway's own UI** (*Config → Security → API Keys*), scope it to **Project Scan +
 Config Scan**, and set it as the `IGNITION_API_KEY` secret on the matching GitHub environment
-(`lab-gateway-dev` / `lab-gateway-prod`). Keys are **per-gateway** — a dev key won't authenticate
-against prod.
+(`lab-gateway-test` / `lab-gateway-production`). Keys are **per-gateway** — a test key won't authenticate
+against production.
 
 ## The scan step 401s on a fresh gateway
 
@@ -84,12 +84,12 @@ token and `security-properties` onto its disk, and the gateway loads them at boo
 RUNNING, and retries the scans. So the first deploy to a fresh gateway goes green on its own, even
 if the stack was started with plain `docker compose up`; every later deploy hot-scans, no restart.
 Where `scripts/setup.sh` still matters is **manual** scans (`scripts/scan.sh`) *before* the first
-deploy: it pre-seeds the token into `gateways/dev/config` and `gateways/prod/config` before first
+deploy: it pre-seeds the token into `gateways/test/config` and `gateways/production/config` before first
 boot, and self-heals a probe that still 401s by seeding the token and restarting that gateway. If
 manual scans fail, re-run `scripts/setup.sh`. Don't hand-generate a replacement token in the
 gateway UI without committing it — the next deploy wipes uncommitted tokens and you're back to 401.
 
-## Locked out of dev/prod after a deploy (admin password rejected)
+## Locked out of test/production after a deploy (admin password rejected)
 
 Historically this happened when a deploy shipped the repo's copy of
 `config/resources/core/ignition/user-source/` — its `users.json` carries the **local** gateway's
@@ -123,18 +123,18 @@ always `scripts/teardown.sh --volumes` before deleting or re-cloning the folder.
 
 This lab uses GitHub Flow — the branch decides the gateway:
 
-- **Did your PR actually merge into `main`?** `deploy.yml` fires on pushes to `main`, and merging a PR is what produces that push. If the PR is still open (or merged into some other branch), nothing ships to dev.
+- **Did your PR actually merge into `main`?** `deploy.yml` fires on pushes to `main`, and merging a PR is what produces that push. If the PR is still open (or merged into some other branch), nothing ships to test.
 - **Did the change touch a deploy path?** Confirm it hit `projects/**` or `services/config/**`; a docs-only push to `main` is filtered out by the `paths:` filter.
 - **Is Actions enabled on your fork?** No enabled workflows means no runs at all. Check *Settings → Actions* on your fork.
-- **Prod doesn't update on a `main` merge — that's intentional.** Prod is reached by **tagging**: `git tag vX.Y.Z && git push origin vX.Y.Z` fires `release.yml`.
+- **Production doesn't update on a `main` merge — that's intentional.** Production is reached by **tagging**: `git tag vX.Y.Z && git push origin vX.Y.Z` fires `release.yml`.
 
 ## The deploy ran but my change isn't visible
 
-- Are you looking at the right gateway? `local` = :8088, `dev` = :8089, `prod` = :8090.
+- Are you looking at the right gateway? `local` = :8088, `test` = :8089, `production` = :8090.
 - Did the scan return HTTP 200? `scripts/scan.sh` pretty-prints the response with a
   `lastScanTimestamp`. Files on disk without a successful scan = gateway hasn't reloaded.
 - Module enable/disable (`services/modules.json`) needs a **restart**, not a scan:
-  `docker compose restart gateway-dev`.
+  `docker compose restart gateway-test`.
 
 ## Validate before you push
 

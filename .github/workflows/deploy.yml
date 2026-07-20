@@ -1,16 +1,16 @@
-# Deploy to a lab gateway — dev on every push to main, dev OR prod on manual
+# Deploy to a lab gateway — test on every push to main, test OR production on manual
 # dispatch (Actions → Deploy → Run workflow → pick the target).
 #
 # GitHub Flow: `main` is the single long-lived branch. Feature branches merge
 # into it via PR (validated by ci.yml), and every push here ships the working
-# tree to the DEV gateway. Prod deploys are the same workflow pointed at the
-# prod gateway via the `target` input.
+# tree to the TEST gateway. Production deploys are the same workflow pointed at the
+# production gateway via the `target` input.
 #
 # File-based deploy via `docker cp` — the runner is a container without the
 # host's paths, so it ships files INTO the target gateway's container and then
 # asks the gateway to scan. The gateway's projects/ and config/ are
 # bind-mounted from ./gateways/<target> on the host, so you can verify what a
-# deploy shipped with `ls gateways/dev/projects`. Runs on a self-hosted
+# deploy shipped with `ls gateways/test/projects`. Runs on a self-hosted
 # runner with the `lab06` label that has access to the same Docker daemon
 # as the gateway containers.
 #
@@ -22,8 +22,8 @@
 #     step you add in Part 1C writes them from GitHub environment secrets;
 #     the pre-wired "Ship secret files" step below hands them to the gateway.
 #
-# Required setup on GitHub (Settings → Environments → "lab-gateway-dev" and
-# "lab-gateway-prod"):
+# Required setup on GitHub (Settings → Environments → "lab-gateway-test" and
+# "lab-gateway-production"):
 #   Secret:    IGNITION_API_KEY    Created in the gateway UI (Config →
 #                                  Security → API Keys); needs a role with
 #                                  Project Scan + Config Scan permission.
@@ -34,8 +34,8 @@
 #                                  in-compose service name (the lab's bundled
 #                                  runner runs on the same docker network as
 #                                  the gateways). Override to
-#                                  http://localhost:8089 (dev) /
-#                                  http://localhost:8090 (prod) if your
+#                                  http://localhost:8089 (test) /
+#                                  http://localhost:8090 (production) if your
 #                                  runner is on the host instead.
 #   Variable:  IGNITION_CONTAINER  Optional. Defaults to
 #                                  lab06-gateway-<target>.
@@ -60,25 +60,33 @@ on:
       target:
         description: "Gateway to deploy to"
         type: choice
-        options: [dev, prod]
-        default: dev
+        options: [test, production]
+        default: test
 
 concurrency:
-  group: deploy-lab-gateway-${{ inputs.target || 'dev' }}
+  group: deploy-lab-gateway-${{ inputs.target || 'test' }}
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
+  # Re-run the full CI suite (ci.yml as a reusable workflow) before anything
+  # touches the gateway. PRs already ran it, but this also covers direct
+  # pushes to main and manual dispatches — the deploy job below only starts
+  # if validation is green.
+  validate:
+    uses: ./.github/workflows/ci.yml
+
   deploy:
-    name: Deploy to ${{ inputs.target || 'dev' }} gateway
+    name: Deploy to ${{ inputs.target || 'test' }} gateway
+    needs: validate
     runs-on: [self-hosted, lab06]
-    environment: lab-gateway-${{ inputs.target || 'dev' }}
+    environment: lab-gateway-${{ inputs.target || 'test' }}
     env:
-      DEPLOY_TARGET: ${{ inputs.target || 'dev' }}
-      IGNITION_URL: ${{ vars.IGNITION_URL || format('http://gateway-{0}:8088', inputs.target || 'dev') }}
-      IGNITION_CONTAINER: ${{ vars.IGNITION_CONTAINER || format('lab06-gateway-{0}', inputs.target || 'dev') }}
+      DEPLOY_TARGET: ${{ inputs.target || 'test' }}
+      IGNITION_URL: ${{ vars.IGNITION_URL || format('http://gateway-{0}:8088', inputs.target || 'test') }}
+      IGNITION_CONTAINER: ${{ vars.IGNITION_CONTAINER || format('lab06-gateway-{0}', inputs.target || 'test') }}
       IGNITION_API_KEY: ${{ secrets.IGNITION_API_KEY }}
       GATEWAY_DATA_PATH: /usr/local/bin/ignition/data
 
@@ -172,7 +180,7 @@ jobs:
       # table; new screens don't tolerate a missing one). NOT
       # continue-on-error: a failed migration must stop the run before any
       # screen ships. Derive the database from $DEPLOY_TARGET (env above):
-      # a prod deploy migrates ignition_prd, not the dev database.
+      # a production deploy migrates ignition_production, not the test database.
 
       - name: Prune working tree per .deployignore
         # Patterns containing a slash → repo-relative path match.
@@ -254,10 +262,10 @@ jobs:
 
           # First deploy to this gateway? Some config is only read at BOOT —
           # most notably config-mode.json, which decides which deployment-mode
-          # collections (core + dev/prd) the gateway resolves. setup.sh seeds
+          # collections (core + test/production) the gateway resolves. setup.sh seeds
           # a gateway before it has ever been deployed to, so on the FIRST
           # deploy the freshly shipped modes are on disk but not in effect,
-          # and the run looks green while the gateway ignores every dev/prd
+          # and the run looks green while the gateway ignores every test/production
           # override. Mark the gateway once we have deployed to it, and tell
           # the scan step to restart when that mark was missing.
           # The marker lives under config/local/ — the per-instance subtree the
@@ -321,7 +329,7 @@ jobs:
           # apply the shipped config against the modes the gateway started
           # with. Restart FIRST, then scan — otherwise the run goes green and
           # the student still has to restart the gateway by hand to see their
-          # dev/prd overrides take effect.
+          # test/production overrides take effect.
           if [ "${FIRST_DEPLOY:-false}" = "true" ]; then
             echo "First deploy — restarting $IGNITION_CONTAINER so it loads the"
             echo "deployment modes and API token that just shipped."

@@ -1,22 +1,22 @@
-# gateways/ — dev and prod gateway state
+# gateways/ — test and production gateway state
 
-This folder holds the **dev** and **prod** gateways' `projects/` and `config/`
+This folder holds the **test** and **production** gateways' `projects/` and `config/`
 directories, bind-mounted into their containers (see `docker-compose.yaml`):
 
 ```
 gateways/
-├── dev/
+├── test/
 │   ├── projects/      ← what deploy.yml shipped (push to main)
 │   ├── config/        ← gateway config, incl. what the deploy copied
 │   └── modules.json   ← this gateway's module manifest (what it last booted with)
-└── prod/
-    ├── projects/      ← what deploy.yml shipped (dispatch, target=prod)
+└── production/
+    ├── projects/      ← what deploy.yml shipped (dispatch, target=production)
     ├── config/
     └── modules.json
 ```
 
 The `modules.json` copies are deliberately separate from the repo's
-`services/modules.json` (which only the **local** gateway mounts): dev/prod
+`services/modules.json` (which only the **local** gateway mounts): test/production
 must run what was *deployed*, not what your working tree happens to contain.
 The deploy workflow updates them and restarts the gateway only when the
 manifest actually changed.
@@ -29,8 +29,8 @@ Why bind mounts instead of named volumes: you can verify a deploy landed
 without touching Docker at all:
 
 ```bash
-ls gateways/dev/projects            # what did the last dev deploy ship?
-ls gateways/prod/projects           # and the last release?
+ls gateways/test/projects            # what did the last test deploy ship?
+ls gateways/production/projects           # and the last release?
 ```
 
 Treat these directories as **read-only**: they are fed by CI (`docker cp` +

@@ -1,8 +1,9 @@
-# PR validation — runs on every pull request into main.
+# Validation — runs on every pull request into main, AND as the gate job
+# inside deploy.yml (via workflow_call).
 #
 # GitHub Flow has one long-lived branch, so we validate PRs into it:
 #   main  ← feature/* branches merge here via PR. A push to main then ships to
-#           the dev gateway (deploy.yml); a manual deploy.yml run with target=prod ships to prod.
+#           the test gateway (deploy.yml); a manual deploy.yml run with target=production ships to production.
 #
 # Purpose: catch the cheap stuff before a deploy gets near it. We DON'T spin
 # up Ignition here; that's left to the deploy workflow on its self-hosted
@@ -15,6 +16,10 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  # Lets deploy.yml reuse this whole workflow as its first job, so nothing
+  # reaches a gateway without passing the exact same checks a PR gets —
+  # including direct pushes to main, which never see a PR.
+  workflow_call:
 
 # Cancel any in-flight CI run for this PR when a new commit lands.
 concurrency:
@@ -26,11 +31,11 @@ permissions:
   contents: read
 
 jobs:
-  # Job ids double as the status-check names branch protection matches on.
+  # Job ids double as the status-check names branch protection matches on
+  # (Lab 03: a job's check name is its id unless you override it with `name:`).
   # Keep them stable — renaming silently orphans required checks configured on
   # main.
   lint:
-    name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -64,7 +69,6 @@ jobs:
         run: docker compose config -q
 
   validate:
-    name: Validate
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -109,7 +113,6 @@ jobs:
           exit $fail
 
   secret-scan:
-    name: Secret scan
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -131,7 +134,7 @@ jobs:
           echo "secrets/ holds only example files."
 
       - name: No secret values in the gateway payload
-        # The values in secrets/*.example are the lab's known local-dev
+        # The values in secrets/*.example are the lab's known local-test
         # passwords. None of them may ever appear in what we ship to a
         # gateway (projects/ + services/config/) — a hit means someone
         # pasted a password into exported config instead of using a

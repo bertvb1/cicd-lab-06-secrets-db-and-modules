@@ -13,11 +13,11 @@
   "password": {
     "type": "Embedded",
     "data": {
-      "ciphertext": "6acymW2_HyOBgr9Jmv0BKmud8oY",
-      "encrypted_key": "MzvSihSUR2L-6XS-lD2kw-JdIKs5fcDtuPP3m-1YZom7uOvHdG82RA",
-      "iv": "ctHvUgNU9EwpbNJw",
+      "ciphertext": "VDyiAYNdjy8YdLmHMdW9qzQVHA",
+      "encrypted_key": "-J3b_f3XEQkuRbc8nRWBwfZAfRAUdqNydD8ZrNOH3REMjJ3ED7fx7A",
+      "iv": "AnvkvmIFvWJ4lDpT",
       "protected": "eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2R0NNIiwiaWF0IjoxNzgzOTQ2MDc3LCJraWQiOiIyYmI1YmVkOC0xN2FhLTQyZDktOGJhMC0zMzFjYmQ4ZDk3MzciLCJ6aXAiOiJERUYifQ",
-      "tag": "f4xHrORQeeqGsLDlD4e87A"
+      "tag": "7Q4oKv7SeJ42VZAzmhh5aA"
     }
   },
   "poolInitSize": 0,
@@ -30,7 +30,7 @@
   "testOnReturn": false,
   "testWhileIdle": false,
   "translator": "POSTGRES",
-  "username": "reporting",
+  "username": "ignition",
   "validationQuery": "SELECT 1",
   "validationSleepTime": 10000
 }

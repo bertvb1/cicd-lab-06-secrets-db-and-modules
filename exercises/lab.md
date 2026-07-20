@@ -16,7 +16,7 @@ references throughout.
 <!-- Infra status: the scaffolding (compose stack, secrets/ dir, db-migration/
      + scripts/migrate.sh, spare .modl, ci.yml secret scan, deploy.yml skeleton
      with the 1C/2B insertion points marked) is built, and the seeded broken
-     state is verified live on 8.3.6 (local Valid, dev Faulted on "Unable to
+     state is verified live on 8.3.6 (local Valid, test Faulted on "Unable to
      decrypt ciphertext"; migrate.sh up/down/version green). Still open before
      the course: the fork-side pipeline runs — see instructor-notes/lab-key.md
      §A2. -->
@@ -61,7 +61,7 @@ migrations.
 ### Demo 2 — the secrets ladder, on the image-based production repo (on screen)
 
 1. The `.env` → Compose interpolation rung and where it leaks: `docker inspect`, `docker compose config`, process env.
-2. The production setup live: `secrets/` with committed dummy values for local dev, a file-type secret provider, a DB connection whose password is `{"type": "Referenced", "data": {"providerName": "PlantSecrets", "secretName": "MSSQL_PASSWORD"}}`, and the `${ENV:NAME}` placeholders in the core collection that the boot script renders to files (umask + chmod **before** the value lands).
+2. The production setup live: `secrets/` with committed dummy values for local test, a file-type secret provider, a DB connection whose password is `{"type": "Referenced", "data": {"providerName": "PlantSecrets", "secretName": "MSSQL_PASSWORD"}}`, and the `${ENV:NAME}` placeholders in the core collection that the boot script renders to files (umask + chmod **before** the value lands).
 3. The infra handoff doc: the table of env vars the infra team fills per environment.
 
 ### Demo 3 — migrations, live on the file-based production repo (on screen)
@@ -80,36 +80,36 @@ migrations.
 
 Follows [`slides/assignment.html`](../slides/assignment.html) 1:1.
 
-### Warm-up (together) — deploy to develop and prod, and check the db-connections
+### Warm-up (together) — deploy to develop and production, and check the db-connections
 Pre-flight first (`validate.sh` green). Then create the two **deploy
-environments** on your fork — *Settings → Environments* → `lab-gateway-dev`
-and `lab-gateway-prod` — each with a secret named `IGNITION_API_KEY` holding
+environments** on your fork — *Settings → Environments* → `lab-gateway-test`
+and `lab-gateway-production` — each with a secret named `IGNITION_API_KEY` holding
 the `cicd:…` token from `.env.example` (the pre-provisioned scan token; the
 same key works on every gateway in this lab). `deploy.yml` picks its
 environment from the deploy target, so without them nothing deploys. From the
 CLI instead of the UI:
 
 ```bash
-gh api -X PUT repos/<you>/cicd-lab-06-secrets-db-and-modules/environments/lab-gateway-dev
-gh api -X PUT repos/<you>/cicd-lab-06-secrets-db-and-modules/environments/lab-gateway-prod
-gh secret set IGNITION_API_KEY --env lab-gateway-dev  --body 'cicd:<token from .env.example>'
-gh secret set IGNITION_API_KEY --env lab-gateway-prod --body 'cicd:<token from .env.example>'
+gh api -X PUT repos/<you>/cicd-lab-06-secrets-db-and-modules/environments/lab-gateway-test
+gh api -X PUT repos/<you>/cicd-lab-06-secrets-db-and-modules/environments/lab-gateway-production
+gh secret set IGNITION_API_KEY --env lab-gateway-test  --body 'cicd:<token from .env.example>'
+gh secret set IGNITION_API_KEY --env lab-gateway-production --body 'cicd:<token from .env.example>'
 ```
 
 Now trigger `deploy.yml` for develop and
-for prod from the Actions tab and watch both runs go green. Now open the develop
+for production from the Actions tab and watch both runs go green. Now open the develop
 gateway, Config → Databases → Connections: both connections (`TimescaleDB` and
-`TimescaleDB_Reports`) are **Faulted**; prod shows the same. Write the diagnosis
+`TimescaleDB_Reports`) are **Faulted**; production shows the same. Write the diagnosis
 question in `NOTES.local.md`: the pipeline is green and the gateway is broken —
 what can a config-only deploy never carry? (Answer lands in Part 1: the password
 values and the per-environment database target.)
 <!-- Seeded state: TimescaleDB_Reports exists only in core (username
-     `reporting`, connectURL → ignition_loc); TimescaleDB has the loc/dev/prd
+     `reporting`, connectURL → ignition_local_development); TimescaleDB has the local-development/test/production
      overrides. Both passwords are Embedded ciphertexts under CUSTOM
      secrets-management keys that are committed for the local gateway
      (services/config/ignition/keys/ + IGNITION_ROOT_KEY_PASSWORD in compose)
      and excluded from the deploy payload — so local decrypts them and
-     dev/prod fault with "Unable to decrypt ciphertext", by design. See
+     test/production fault with "Unable to decrypt ciphertext", by design. See
      instructor-notes/lab-key.md §A1 for the verified mechanics and the
      mint tooling. -->
 
@@ -126,36 +126,36 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
   **both** connections at their **referenced** secret (in every deployment
   mode that overrides the password field). Then check `git status`: the UI
   writes the provider into the **active mode's collection**
-  (`resources/loc/ignition/secret-provider/`), and `loc` never deploys —
+  (`resources/local-development/ignition/secret-provider/`), and `local-development` never deploys —
   develop would fault on a missing provider while local stays green. Move it
   to core and rescan:
 
   ```bash
-  mv services/config/resources/{loc,core}/ignition/secret-provider
+  mv services/config/resources/{local-development,core}/ignition/secret-provider
   ./scripts/scan.sh config    # still Valid, now from core
   ```
 
   Finally, grep the exported config to prove no value leaked.
-- **1C.** Build the fix for develop, in two halves: add the **dev
+- **1C.** Build the fix for develop, in two halves: add the **test
   deployment-mode override** for `TimescaleDB_Reports`
-  (`…resources/dev/ignition/database-connection/TimescaleDB_Reports/config.json`,
-  connectURL → `ignition_dev`) **and its `prd` twin** (connectURL →
-  `ignition_prd` — prod inherits the same core flaw; copy the pattern from
+  (`…resources/test/ignition/database-connection/TimescaleDB_Reports/config.json`,
+  connectURL → `ignition_test`) **and its `production` twin** (connectURL →
+  `ignition_production` — production inherits the same core flaw; copy the pattern from
   `TimescaleDB`, which has all three modes), and add
   `POSTGRES_PASSWORD` + `REPORTING_PASSWORD` as secrets on **both** the
-  `lab-gateway-dev` and `lab-gateway-prod` environments plus the
+  `lab-gateway-test` and `lab-gateway-production` environments plus the
   **Materialize secret files** step in `deploy.yml`
   (umask 177 + `printf`, before `compose up`). Nothing is deployed yet.
 - **1D.** The full deploy moment, every station separately: **branch**
-  (`feature/fix-dev-db-connections`) → **commit & push** (no secret values in
+  (`feature/fix-test-db-connections`) → **commit & push** (no secret values in
   the diff) → **open the PR** → **watch the PR validate** (`ci.yml` green) →
   **merge** → **watch the pipeline deploy** (materialize secrets → up → scan →
   verify) → **verify develop** (both connections Valid, `TimescaleDB_Reports`
-  on `ignition_dev`) → **promote to prod** (Actions → `deploy.yml` → Run
-  workflow → `target: prod` — same commit, same pipeline, different
-  environment) → **verify prod** (both Valid, `TimescaleDB_Reports` on
-  `ignition_prd`).
-- **Gate:** both connections Valid on develop AND prod, fixed by the pipeline
+  on `ignition_test`) → **promote to production** (Actions → `deploy.yml` → Run
+  workflow → `target: production` — same commit, same pipeline, different
+  environment) → **verify production** (both Valid, `TimescaleDB_Reports` on
+  `ignition_production`).
+- **Gate:** both connections Valid on develop AND production, fixed by the pipeline
   and not by hand, and you can narrate: GitHub secret → file → provider →
   reference.
 
@@ -163,21 +163,21 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
 - **2A.** Write `db-migration/migrate/0002_add_downtime_log.up.sql` **and** `.down.sql`; apply with `scripts/migrate.sh up`; read `schema_migrations` (version 2, not dirty); re-run to see idempotency. Note: golang-migrate will NOT stop you editing an applied migration — that discipline is a written rule (the production repo's `docs/MIGRATIONS.md`), not a tool feature.
 - **2B.** Add the migrate step to `deploy.yml` **before** the ship step (and
   not `continueOnError`), deriving the database from the deploy target —
-  `$DEPLOY_TARGET` is already in the job's env, and a `target: prod`
-  promotion must migrate `ignition_prd`, not dev:
+  `$DEPLOY_TARGET` is already in the job's env, and a `target: production`
+  promotion must migrate `ignition_production`, not test:
 
   ```yaml
   - name: Migrate database
     run: |
       case "$DEPLOY_TARGET" in
-        prod) db=ignition_prd ;;
-        *)    db=ignition_dev ;;
+        production) db=ignition_production ;;
+        *)    db=ignition_test ;;
       esac
       ./scripts/migrate.sh up --database "$db"
   ```
 
-  PR with the migration **and** the screen that reads the new table together; watch the run migrate dev before shipping; prove it in dev's `schema_migrations`.
-- **Gate:** a green deploy run whose log shows migrate → ship → scan → verify, and dev's ledger at version 2 (a later prod promotion migrates `ignition_prd` the same way).
+  PR with the migration **and** the screen that reads the new table together; watch the run migrate test before shipping; prove it in test's `schema_migrations`.
+- **Gate:** a green deploy run whose log shows migrate → ship → scan → verify, and test's ledger at version 2 (a later production promotion migrates `ignition_production` the same way).
 
 ### Part 3 — deploy three third-party modules (±10 min)
 - Install the three spare `.modl` files by adding **minimal** `services/modules.json` entries, let the gateway derive the acceptance fields, commit them, ship them through the pipeline, and verify they come up **Running** with no hands on the gateway.
@@ -201,7 +201,7 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
   }
   ```
 
-  **Step 2 — boot once and let the gateway fill in the rest.** Restart the local gateway (`docker restart lab06-gateway-loc`, or re-run `scripts/setup.sh`). Because acceptance is already in the env vars, the gateway installs the modules headlessly and **rewrites `modules.json`**, appending to each entry the two fields it computed:
+  **Step 2 — boot once and let the gateway fill in the rest.** Restart the local gateway (`docker restart lab06-gateway-local-development`, or re-run `scripts/setup.sh`). Because acceptance is already in the env vars, the gateway installs the modules headlessly and **rewrites `modules.json`**, appending to each entry the two fields it computed:
 
   ```json
     "certFingerprint": "e5a3cf3f06627c175b68b0122ac8f2c3f9c992e2",
@@ -216,7 +216,7 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
   # 1) a module's web resources are served only when it is Running:
   curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8088/res/embr-periscope/   # -> 200
   # 2) the gateway logged them starting up:
-  docker logs lab06-gateway-loc 2>&1 | grep "Starting up module 'com.mussonindustrial"
+  docker logs lab06-gateway-local-development 2>&1 | grep "Starting up module 'com.mussonindustrial"
   ```
 
   A `200` (not `302`/`404`) plus a `Starting up module` line = installed and Running. In the UI it is *Config → Modules*: all three listed, all Running.
@@ -224,7 +224,7 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
   **Step 4 — ship them.** PR → merge → deploy run. Because the module manifest changed, the deploy **restarts** the gateway: modules only load at boot, unlike projects and config, which reload hot.
 
   **Negative test (what un-accepted looks like), on one module:** in a scratch checkout, delete its two derived lines **and** drop `com.mussonindustrial.embr.periscope` from `ACCEPT_MODULE_LICENSES` / `ACCEPT_MODULE_CERTS`, wipe the local volume, and boot. With the module enabled but unaccepted the gateway parks at the commissioning screen — `curl http://localhost:8088/StatusPing` returns `{"state":"RUNNING","details":"COMMISSIONING"}` and `/res/embr-periscope/` redirects (`302`). Put both back to recover.
-- **Gate:** all three modules Running on dev, hands-free — `/res/embr-periscope/` returns `200`.
+- **Gate:** all three modules Running on test, hands-free — `/res/embr-periscope/` returns `200`.
 
 ### Stretch (optional)
 - **S1.** The internal secret provider, and where it breaks: create an **internal secret provider** on the local gateway, store `REPORTING_PASSWORD` in it (the gateway encrypts it and keeps the ciphertext in its own config) and point `TimescaleDB_Reports` at it. Locally it stays Valid; ship it and develop faults — the ciphertext only decrypts on the gateway that created it. Explore `ignition-secrets-tool.sh` (shared root key + KEK under `data/config/ignition/keys/`) as the escape hatch, then revert to the referenced secret. What is "the secret" now, and who owns it?

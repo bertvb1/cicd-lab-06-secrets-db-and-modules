@@ -34,7 +34,7 @@ config and getting committed "just to make it work".
    `set -x` around them, don't write them to artifacts.
 4. **Least scope, short life.** Per-gateway API keys instead of one master key;
    PATs with `repo` scope only; GitHub *environment* secrets
-   (`lab-gateway-dev` / `lab-gateway-prod`) instead of repo-wide ones.
+   (`lab-gateway-test` / `lab-gateway-production`) instead of repo-wide ones.
 
 ## 3. The ladder
 
@@ -65,7 +65,7 @@ vars (e.g. `POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password`) so the
 value is read from the mounted file.
 
 Who fills the files: locally, committed dummy values (our production repo
-commits a `secrets/` folder of non-sensitive local-dev values so a fresh clone
+commits a `secrets/` folder of non-sensitive local-test values so a fresh clone
 just works); on deployed environments, the infra team or the deploy workflow — a
 `deploy.yml` step can materialize GitHub secrets into these files
 (`umask 177` + `printf '%s'`) right before `compose up`.
@@ -90,7 +90,7 @@ needs to store secret values inline. Two flavours matter for CI/CD:
   This lab's LOCAL gateway runs **custom keys, committed as part of the seed**
   (`services/config/ignition/keys/`, passphrase in `docker-compose.yaml` via
   `IGNITION_ROOT_KEY_PASSWORD`) — that's why the committed db-connection
-  ciphertexts work on your local gateway, while dev/prod (which never receive
+  ciphertexts work on your local gateway, while test/production (which never receive
   the key files — `.deployignore` excludes them) fault on exactly that
   decrypt error. In a real repo those key files are the secret and must never
   be committed; committing them here is the seed's deliberate anti-pattern,
@@ -108,7 +108,7 @@ needs to store secret values inline. Two flavours matter for CI/CD:
   ```
 
 **Why referenced wins for a pipeline:** the same committed gateway config works
-on local, dev and prod, because each environment injects its *own* value under
+on local, test and production, because each environment injects its *own* value under
 the same secret name. Config stays in Git; values stay out. This is the same
 pattern as GitHub environments (same workflow, different `IGNITION_API_KEY` per
 environment) — one mental model everywhere.
@@ -160,5 +160,5 @@ full gitleaks history scan into CI is stretch S3 of the lab.
 | Your laptop | `.env` (gitignored) + `secrets/` files |
 | Compose stack | interpolation for non-secrets; Docker secrets for credentials |
 | Ignition gateways | referenced secrets from a provider fed by env/file |
-| GitHub Actions | environment-scoped secrets (`lab-gateway-dev`, `lab-gateway-prod`); masked in logs |
+| GitHub Actions | environment-scoped secrets (`lab-gateway-test`, `lab-gateway-production`); masked in logs |
 | The repo | `.env.example`, `secrets/*.example`, secret scanner in CI |
