@@ -133,17 +133,5 @@
     "filename": "/usr/local/bin/ignition/user-lib/modules/Web Developer Module.modl",
     "onStartup": "enabled",
     "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
-  },
-  "com.mussonindustrial.embr.charts": {
-    "filename": "/third-party-modules/Embr-Charts-Ignition83-4.0.1.modl",
-    "onStartup": "enabled",
-    "certFingerprint": "e5a3cf3f06627c175b68b0122ac8f2c3f9c992e2",
-    "licenseAgreementHash": 3266212556
-  },
-  "com.mustry.historian.timescaledb": {
-    "filename": "/third-party-modules/TimescaleDB-Historian.modl",
-    "onStartup": "enabled",
-    "certFingerprint": "003f467208c9abf8b178960c01e102bb76a9cc98",
-    "licenseAgreementHash": 106690219
   }
 }

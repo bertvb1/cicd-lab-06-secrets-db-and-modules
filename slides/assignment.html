@@ -181,7 +181,7 @@ body{
       <li><b>Warm-up:</b> deploy to develop and prod, and find the broken database connections.</li>
       <li><b>Part 1:</b> hook up a secret for the db-connection: two connections get file-based secrets, and a feature-branch PR ships the fix that makes develop Valid — then you promote it to prod.</li>
       <li><b>Part 2:</b> a schema change ships as a golang-migrate up/down pair that the pipeline applies before the screens land.</li>
-      <li><b>Part 3:</b> a third-party module rides the same pipeline, and a fresh gateway boots complete.</li>
+      <li><b>Part 3:</b> three third-party modules ride the same pipeline, and a fresh gateway boots complete.</li>
     </ul>
     <div class="for">
       <span>Floating to help</span>
@@ -238,9 +238,9 @@ body{
       </div>
       <div class="pcard">
         <div class="pn">PART 3 · SOLO · ±10 MIN</div>
-        <h4>Deploy a third-party module</h4>
+        <h4>Deploy three third-party modules</h4>
         <p>Add a <span class="inlinecode">.modl</span> with headless license and certificate acceptance in <span class="inlinecode">modules.json</span>, and ship it through the pipeline.</p>
-        <div class="gate">gate → the module shows Running on dev, hands-free</div>
+        <div class="gate">gate → all three modules show Running on dev, hands-free</div>
       </div>
     </div>
     <div class="goal">
@@ -655,7 +655,7 @@ docker exec lab06-timescaledb psql -U ignition \
   </div>
   <div class="body">
     <div class="eyebrow">Part 3 · solo · ±10 min · exercises/lab.md</div>
-    <div class="title" style="color:#fff;max-width:26ch">Deploy a third-party module through the pipeline</div>
+    <div class="title" style="color:#fff;max-width:26ch">Deploy three third-party modules through the pipeline</div>
     <p class="lead">The binary becomes deployable state: committed, license-accepted in config, shipped by the same run as everything else. The proof of success is a gateway that boots complete with <b style="color:#fff">no hands on it</b>.</p>
     <ul class="checks" style="margin-top:22px;max-width:920px">
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span>Add a <span class="mono" style="color:#dbe4f0">.modl</span> from <span class="mono" style="color:#dbe4f0">third-party-modules/</span> with headless license/cert acceptance, and ship it.</span></li>
@@ -672,23 +672,31 @@ docker exec lab06-timescaledb psql -U ignition \
     <div class="stage">Part 3 · the module</div>
   </div>
   <div class="body">
-    <div class="sechead"><span class="num">3</span><div><div class="title">Add a third-party module with headless license acceptance</div><div class="lead">The module loads from <span class="inlinecode">third-party-modules/</span>, and the license is accepted by config the gateway derives, not by a click.</div></div></div>
+    <div class="sechead"><span class="num">3</span><div><div class="title">Add three third-party modules with headless license acceptance</div><div class="lead">The modules load from <span class="inlinecode">third-party-modules/</span>, and every license is accepted by config the gateway derives, not by a click.</div></div></div>
     <div class="cols2">
       <div class="steps">
-        <div class="step"><div class="ix">1</div><div class="tx">Pick the spare module in <span class="inlinecode">third-party-modules/</span> (see <span class="inlinecode">exercises/lab.md</span>). It's already listed in the compose <span class="inlinecode">GATEWAY_MODULES_ENABLED</span> / <span class="inlinecode">ACCEPT_MODULE_LICENSES</span> / <span class="inlinecode">ACCEPT_MODULE_CERTS</span> — that env acceptance is what lets the gateway derive the fingerprint headlessly.</div></div>
-        <div class="step"><div class="ix">2</div><div class="tx">In <span class="inlinecode">services/modules.json</span> write only two lines: <span class="inlinecode">"filename"</span> and <span class="inlinecode">"onStartup": "enabled"</span>. You do <b>not</b> type the fingerprint or hash — you don't know them yet.</div></div>
-        <div class="step"><div class="ix">3</div><div class="tx">Boot the local gateway once. It accepts the license from the env vars and <b>writes <span class="inlinecode">certFingerprint</span> + <span class="inlinecode">licenseAgreementHash</span> back into <span class="inlinecode">modules.json</span></b>. <span class="inlinecode">git diff</span> shows exactly what it added — commit that.</div></div>
-        <div class="step"><div class="ix">4</div><div class="tx">Ship it through the pipeline (PR → merge → deploy run). Verify on dev at <span class="inlinecode">http://localhost:8089</span>: <i>Config → Modules</i> shows it <b>Running</b>, and <span class="inlinecode">curl http://localhost:8089/res/&lt;module&gt;/</span> returns <b>200</b>. Nobody clicked an install dialog.</div></div>
-        <div class="step"><div class="ix">5</div><div class="tx">Negative test: delete the two derived lines <b>and</b> drop the module from the <span class="inlinecode">ACCEPT_MODULE_*</span> env vars, wipe the volume, boot — the gateway parks at commissioning (<span class="inlinecode">"details":"COMMISSIONING"</span>). Put both back.</div></div>
+        <div class="step"><div class="ix">1</div><div class="tx"><b>Three</b> modules in <span class="inlinecode">third-party-modules/</span> have no manifest entry, so the gateway never loads them: <b>Periscope</b>, <b>Charts</b> and the <b>TimescaleDB Historian</b>. All three are already in the compose <span class="inlinecode">GATEWAY_MODULES_ENABLED</span> / <span class="inlinecode">ACCEPT_MODULE_LICENSES</span> / <span class="inlinecode">ACCEPT_MODULE_CERTS</span> — that env acceptance is what lets the gateway derive the fingerprint headlessly.</div></div>
+        <div class="step"><div class="ix">2</div><div class="tx">Add all three to <span class="inlinecode">services/modules.json</span>, two lines each: <span class="inlinecode">"filename"</span> and <span class="inlinecode">"onStartup": "enabled"</span>. The module IDs are on the right — you can't guess those, so they're given. You do <b>not</b> type the fingerprint or hash: you don't know them yet.</div></div>
+        <div class="step"><div class="ix">3</div><div class="tx">Boot the local gateway once. It accepts the licenses from the env vars and <b>writes <span class="inlinecode">certFingerprint</span> + <span class="inlinecode">licenseAgreementHash</span> back into <span class="inlinecode">modules.json</span></b> for all three. <span class="inlinecode">git diff</span> shows exactly what it added — commit that.</div></div>
+        <div class="step"><div class="ix">4</div><div class="tx">Ship them through the pipeline (PR → merge → deploy run). Because the manifest changed, the deploy <b>restarts</b> the gateway: modules only load at boot. Verify on dev at <span class="inlinecode">http://localhost:8089</span>: <i>Config → Modules</i> shows all three <b>Running</b>. Nobody clicked an install dialog.</div></div>
+        <div class="step"><div class="ix">5</div><div class="tx">Negative test on <b>one</b> of them: delete its two derived lines <b>and</b> drop it from the <span class="inlinecode">ACCEPT_MODULE_*</span> env vars, wipe the volume, boot — the gateway parks at commissioning (<span class="inlinecode">"details":"COMMISSIONING"</span>). Put both back.</div></div>
       </div>
       <div>
-        <div class="code"><pre><span class="cm"># services/modules.json: all YOU write</span>
+        <div class="code"><pre><span class="cm"># services/modules.json: all YOU write (3 entries)</span>
 "com.mussonindustrial.embr.periscope": {
   "filename": <span class="cmd2">"/third-party-modules/Embr-Periscope-Ignition83-0.12.0.modl"</span>,
   "onStartup": <span class="cmd2">"enabled"</span>
+},
+"com.mussonindustrial.embr.charts": {
+  "filename": <span class="cmd2">"/third-party-modules/Embr-Charts-Ignition83-4.0.1.modl"</span>,
+  "onStartup": <span class="cmd2">"enabled"</span>
+},
+"com.mustry.historian.timescaledb": {
+  "filename": <span class="cmd2">"/third-party-modules/TimescaleDB-Historian.modl"</span>,
+  "onStartup": <span class="cmd2">"enabled"</span>
 }
 
-<span class="cm"># after one boot, the gateway appends:</span>
+<span class="cm"># after one boot, the gateway appends to EACH:</span>
   <span class="cmd2">"certFingerprint": "e5a3cf3f…",</span>
   <span class="cmd2">"licenseAgreementHash": 101444854</span></pre></div>
         <div class="goal" style="margin-top:18px">
@@ -712,7 +720,7 @@ docker exec lab06-timescaledb psql -U ignition \
     <div class="steps" style="max-width:1000px">
       <div class="step"><div class="ix">1</div><div class="tx"><b>Part 1:</b> both db-connections <b>Valid on develop and prod</b>, fixed by a full deploy (feature branch → PR validation → merge → pipeline → promote with <span class="inlinecode">target: prod</span>), <span class="inlinecode">validate.sh</span> green with zero plaintext secrets, and you can narrate <b>GitHub secret → file on the host → /run/secrets → provider → reference in config</b>.</div></div>
       <div class="step"><div class="ix p">2</div><div class="tx"><b>Part 2:</b> a green deploy run whose log shows <b>migrate before ship</b>, dev's <span class="inlinecode">schema_migrations</span> ledger at version 2, and the up/down pair committed.</div></div>
-      <div class="step"><div class="ix">3</div><div class="tx"><b>Part 3:</b> the module shows <b>Running</b> on develop with license acceptance in config, and you've seen what the negative test does on a fresh boot.</div></div>
+      <div class="step"><div class="ix">3</div><div class="tx"><b>Part 3:</b> all three modules show <b>Running</b> on develop with license acceptance in config, and you've seen what the negative test does on a fresh boot.</div></div>
     </div>
     <div class="goal warn-g" style="margin-top:22px">
       <span class="badge">Debrief fuel</span>
