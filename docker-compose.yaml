@@ -35,6 +35,8 @@
 x-ignition-env: &ignition-env
   ACCEPT_IGNITION_EULA: "Y"
   IGNITION_EDITION: standard
+  # Skip the Quick Start prompt on first login — the lab ships its own projects.
+  DISABLE_QUICKSTART: "true"
   GATEWAY_MODULES_ENABLED: >-
     com.inductiveautomation.alarm-notification,
     com.inductiveautomation.eventstream,
