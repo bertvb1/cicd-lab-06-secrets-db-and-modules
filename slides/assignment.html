@@ -417,10 +417,10 @@ docker exec lab06-gateway-loc ls -l /run/secrets/</pre></div>
     <div class="sechead"><span class="num">1B</span><div><div class="title">Create the file-based secret provider and reference both passwords</div><div class="lead">After this step the gateway config holds <b>names, not values</b>: that's what makes it safe to commit and able to travel to develop and prod.</div></div></div>
     <div class="cols2">
       <div class="steps">
-        <div class="step"><div class="ix">1</div><div class="tx">On the local gateway, create a <b>file-type secret provider</b> named <span class="inlinecode">LabSecrets</span>.</div></div>
+        <div class="step"><div class="ix">1</div><div class="tx">On the local gateway, create a <b>file-type secret provider</b> named <span class="inlinecode">LabSecrets</span> — and create it on <b><span class="inlinecode">core</span></b>, not on <span class="inlinecode">loc</span>. Only <span class="inlinecode">core</span> is inherited by dev and prd; a provider that lands in <span class="inlinecode">loc</span> never deploys, and develop faults on a missing provider.</div></div>
         <div class="step"><div class="ix">2</div><div class="tx">Add two secrets to it: <span class="inlinecode">POSTGRES_PASSWORD</span> → <span class="inlinecode">/run/secrets/postgres_password</span> and <span class="inlinecode">REPORTING_PASSWORD</span> → <span class="inlinecode">/run/secrets/reporting_password</span>.</div></div>
         <div class="step"><div class="ix">3</div><div class="tx">Re-point <b>both</b> database connections' passwords at their <b>referenced</b> secret: <span class="inlinecode">TimescaleDB</span> → <span class="inlinecode">POSTGRES_PASSWORD</span>, <span class="inlinecode">TimescaleDB_Reports</span> → <span class="inlinecode">REPORTING_PASSWORD</span>. Test: both stay <b>Valid</b>. Note: check all deployment modes.</div></div>
-        <div class="step"><div class="ix">4</div><div class="tx"><b>Check which collection the UI put the secret provider in</b> — <span class="inlinecode">git status</span>. The gateway writes it into the <b>active mode's</b> collection (<span class="inlinecode">resources/loc/</span>), and <span class="inlinecode">loc</span> never deploys: dev's chain is <span class="inlinecode">external → core → dev</span>. Locally everything stays green — develop would fault on a missing provider. <b>Move it to <span class="inlinecode">core</span></b> and rescan.</div></div>
+        <div class="step"><div class="ix">4</div><div class="tx"><b>Verify where it actually landed</b> — <span class="inlinecode">git status</span>. You want it under <span class="inlinecode">resources/core/</span>. If the UI wrote it into <span class="inlinecode">resources/loc/</span> instead (the active mode's collection), move it to <span class="inlinecode">core</span> and rescan: dev's chain is <span class="inlinecode">external → core → dev</span>, so <span class="inlinecode">loc</span> would stay green locally and fault on develop.</div></div>
         <div class="step"><div class="ix">5</div><div class="tx">Prove nothing leaked: grep the exported config for both password values → no hits. All that's committed is the <span class="inlinecode">"type": "Referenced"</span> shape from the teaching.</div></div>
       </div>
       <div>
@@ -433,8 +433,9 @@ docker exec lab06-gateway-loc ls -l /run/secrets/</pre></div>
   }
 }
 
-<span class="cm"># 4: the UI wrote the provider into loc — loc never deploys</span>
-git status   <span class="cm"># → resources/<span class="red">loc</span>/ignition/secret-provider/LabSecrets/</span>
+<span class="cm"># 4: it must be in core — loc never deploys</span>
+git status   <span class="cm"># → resources/<span class="grn">core</span>/ignition/secret-provider/LabSecrets/ ✓</span>
+<span class="cm">#    landed in loc instead? move it:</span>
 mv services/config/resources/<span class="cmd2">{loc,core}</span>/ignition/secret-provider
 ./scripts/scan.sh config     <span class="cm"># gateway re-reads → still Valid</span>
 
