@@ -66,28 +66,27 @@ git update-index --no-skip-worktree <path>
 
 ## The deploy 403s on the scan step
 
-The `IGNITION_API_KEY` for that environment is missing, wrong, or under-scoped. Generate the key
-**on the target gateway's own UI** (*Config → Security → API Keys*), scope it to **Project Scan +
-Config Scan**, and set it as the `IGNITION_API_KEY` secret on the matching GitHub environment
-(`lab-gateway-test` / `lab-gateway-production`). Keys are **per-gateway** — a test key won't authenticate
-against production.
+The `IGNITION_API_KEY` secret on that GitHub environment (`lab-gateway-test` /
+`lab-gateway-production`) is missing, wrong, or not the target gateway's own key.
+`scripts/setup.sh` generated one key per gateway into `.env` — set the secret to the matching
+`IGNITION_API_KEY_TEST` / `_PRODUCTION` value. Keys are **per-gateway** — a test key won't
+authenticate against production.
 
 ## The scan step 401s on a fresh gateway
 
 The scan API only accepts tokens the gateway has **loaded** — and a deploy can't scan in its own
-token, because the scan call already needs it (chicken-and-egg). On a gateway that never loaded the
-committed `cicd` token, the first deploy copies everything to disk (token included) but the scan
-401s: it *looks* like "the API key deployed but nothing else did". **The deploy workflows now
-self-heal this:** on a 401 (token never loaded) or 403 (first-boot commissioning reset the
-permissions), the scan step restarts the gateway container once — the Ship step already copied the
-token and `security-properties` onto its disk, and the gateway loads them at boot — waits for
-RUNNING, and retries the scans. So the first deploy to a fresh gateway goes green on its own, even
-if the stack was started with plain `docker compose up`; every later deploy hot-scans, no restart.
-Where `scripts/setup.sh` still matters is **manual** scans (`scripts/scan.sh`) *before* the first
-deploy: it pre-seeds the token into `gateways/test/config` and `gateways/production/config` before first
-boot, and self-heals a probe that still 401s by seeding the token and restarting that gateway. If
-manual scans fail, re-run `scripts/setup.sh`. Don't hand-generate a replacement token in the
-gateway UI without committing it — the next deploy wipes uncommitted tokens and you're back to 401.
+token, because the scan call already needs it (chicken-and-egg). The keys are not in git at all:
+`scripts/setup.sh` (via `scripts/generate-api-keys.sh`) generates them into `.env` and writes each
+gateway's token resource onto its disk before first boot, and the deploy wipe **spares**
+`api-token/` on the gateway. On a gateway that has the token on disk but never loaded it, the scan
+401s even though the files deployed fine. **The deploy workflows self-heal this:** on a 401 (token
+not loaded) or 403 (first-boot commissioning reset the permissions; the Ship step just copied the
+repo's `security-properties` back), the scan step restarts the gateway container once — it loads
+both at boot — waits for RUNNING, and retries the scans. So the first deploy to a fresh gateway
+goes green on its own; every later deploy hot-scans, no restart. A 401 that **survives** the
+restart means the gateway has no token on disk at all (e.g. `gateways/<gw>/config` was wiped):
+re-run `scripts/setup.sh` — it re-derives every token from the keys in `.env`, seeds them, and
+restarts what needs restarting. The same applies to failing **manual** scans (`scripts/scan.sh`).
 
 ## Locked out of test/production after a deploy (admin password rejected)
 

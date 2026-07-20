@@ -24,9 +24,9 @@
 #
 # Required setup on GitHub (Settings → Environments → "lab-gateway-test" and
 # "lab-gateway-production"):
-#   Secret:    IGNITION_API_KEY    Created in the gateway UI (Config →
-#                                  Security → API Keys); needs a role with
-#                                  Project Scan + Config Scan permission.
+#   Secret:    IGNITION_API_KEY    The IGNITION_API_KEY_TEST / _PRODUCTION
+#                                  value from your .env (scripts/setup.sh
+#                                  generated it, unique to your clone).
 #   Secrets:   POSTGRES_PASSWORD / REPORTING_PASSWORD — you add these in
 #                                  Part 1C for the Materialize step.
 #   Variable:  IGNITION_URL        Optional. Defaults to
@@ -219,12 +219,15 @@ jobs:
         #     and identity-provider/default/ — the gateway-owned INTERNAL
         #     identity; users.json holds THIS gateway's admin password hash.
         #     Wiping or overwriting it locks everyone out.
-        # Wiping any of those would strip the gateway's identity, since nothing
-        # restores them. Everything else under config/ IS repo-owned and is
-        # wiped and copied fresh — including the scan API token
-        # (resources/core/ignition/api-token/), security-properties (permission
-        # policy), and any identity resources you added yourself (database/AD
-        # user sources, SAML/OIDC providers — those hold no password data).
+        #   config/resources/core/ignition/api-token/ — this gateway's scan-API
+        #     token, generated per clone by setup.sh and never committed (a
+        #     committed token would be a working credential in every fork).
+        #     Wiping it would revoke the very key this workflow scans with.
+        # Wiping any of those would strip state nothing in the checkout can
+        # restore. Everything else under config/ IS repo-owned and is wiped
+        # and copied fresh — including security-properties (permission policy)
+        # and any identity resources you added yourself (database/AD user
+        # sources, SAML/OIDC providers — those hold no password data).
         run: |
           set -euo pipefail
           docker exec "$IGNITION_CONTAINER" sh -c "
@@ -246,7 +249,7 @@ jobs:
             fi
             if [ -d '$GATEWAY_DATA_PATH/config/resources/core/ignition' ]; then
               find '$GATEWAY_DATA_PATH/config/resources/core/ignition' -mindepth 1 -maxdepth 1 \
-                ! -name user-source ! -name identity-provider -exec rm -rf {} +
+                ! -name user-source ! -name identity-provider ! -name api-token -exec rm -rf {} +
             fi
             if [ -d '$GATEWAY_DATA_PATH/config/resources/core/ignition/user-source' ]; then
               find '$GATEWAY_DATA_PATH/config/resources/core/ignition/user-source' -mindepth 1 -maxdepth 1 \
@@ -287,13 +290,15 @@ jobs:
         # step above removes scripts/ (it is in .deployignore), so that script is
         # not on disk in this job.
         #
-        # Self-heal on 401/403: on a gateway that has never loaded the API
-        # token (or whose first-boot commissioning reset the permissions in
-        # security-properties), the scan cannot authenticate — but the Ship
-        # step has ALREADY copied the token and the repo's security-properties
-        # onto its disk. The gateway only loads those at boot, so: restart it
-        # once, wait for RUNNING, retry the scans. First deploy to a fresh
-        # gateway heals itself; every later deploy scans hot, no restart.
+        # Self-heal on 401/403: on a gateway that has not yet loaded its API
+        # token (setup.sh writes it to the gateway's disk; the wipe above
+        # spares it) or whose first-boot commissioning reset the permissions
+        # in security-properties (the Ship step just copied the repo's copy
+        # back), the scan cannot authenticate. The gateway only loads both at
+        # boot, so: restart it once, wait for RUNNING, retry the scans. First
+        # deploy to a fresh gateway heals itself; every later deploy scans
+        # hot, no restart. A 401 that SURVIVES the restart means the token
+        # was never generated on the host — run scripts/setup.sh there.
         run: |
           set -euo pipefail
           run_scans() {

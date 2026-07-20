@@ -71,6 +71,18 @@ env_value() {
   printf '%s' "$v"
 }
 
+# Print the per-gateway API key from .env (empty if unset). Each gateway has
+# its OWN key — scripts/generate-api-keys.sh generates them on setup; nothing
+# key-related is committed.
+api_key_for() {
+  case "${1:-local}" in
+    local)      env_value IGNITION_API_KEY_LOCAL ;;
+    test)       env_value IGNITION_API_KEY_TEST ;;
+    production) env_value IGNITION_API_KEY_PRODUCTION ;;
+    *)          return 1 ;;
+  esac
+}
+
 # Populate IGNITION_API_KEY from .env. Precedence (first non-empty wins):
 #   1. IGNITION_API_KEY already set in the environment (CI sets this)
 #   2. IGNITION_API_KEY_<GATEWAY> from .env (when $1 is local|test|production)
@@ -83,9 +95,7 @@ load_api_key_from_env() {
   if [ -n "$gateway" ]; then
     local per_gw
     case "$gateway" in
-      local) per_gw="$(env_value IGNITION_API_KEY_LOCAL)" ;;
-      test)   per_gw="$(env_value IGNITION_API_KEY_TEST)" ;;
-      production)  per_gw="$(env_value IGNITION_API_KEY_PRODUCTION)" ;;
+      local|test|production) per_gw="$(api_key_for "$gateway")" ;;
     esac
     if [ -n "${per_gw:-}" ]; then
       IGNITION_API_KEY="$per_gw"
@@ -97,10 +107,9 @@ load_api_key_from_env() {
   export IGNITION_API_KEY
 }
 
-# Returns 0 if IGNITION_API_KEY is empty or an obvious placeholder. Note:
-# .env.example ships a REAL key (it matches the pre-provisioned `cicd` token
-# committed in services/config), so equality with .env.example does NOT mean
-# "not configured" — only empty / replace-me values do.
+# Returns 0 if IGNITION_API_KEY is empty or an obvious placeholder. Keys are
+# generated into .env by scripts/generate-api-keys.sh (run from setup.sh), so
+# this only triggers when setup has not run yet.
 is_placeholder_api_key() {
   case "${IGNITION_API_KEY:-}" in
     ''|*replace-me*) return 0 ;;

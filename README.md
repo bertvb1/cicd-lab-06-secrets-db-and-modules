@@ -120,7 +120,7 @@ Both deploy targets need:
 
 | Scope | Name | Type | Purpose |
 |---|---|---|---|
-| Environment `lab-gateway-test` | `IGNITION_API_KEY` | Secret | Token with Project Scan + Config Scan permission (the pre-provisioned `cicd` token from `.env.example` works) |
+| Environment `lab-gateway-test` | `IGNITION_API_KEY` | Secret | The `IGNITION_API_KEY_TEST` value from your `.env` — `setup.sh` generates a unique key per gateway (nothing key-related is committed) |
 | Environment `lab-gateway-test` | `POSTGRES_PASSWORD`, `REPORTING_PASSWORD` | Secrets | **You add these in Part 1C** — the Materialize step turns them into secret files on the test host |
 | Environment `lab-gateway-test` | `IGNITION_URL`, `IGNITION_CONTAINER` | Variables (optional) | Default to `http://gateway-test:8088` / `lab06-gateway-test` (bundled-runner case) |
 | Environment `lab-gateway-production` | (same set) | | Defaults: `http://gateway-production:8088` / `lab06-gateway-production` |

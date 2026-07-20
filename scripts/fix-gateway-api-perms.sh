@@ -2,8 +2,9 @@
 # fix-gateway-api-perms.sh — restore the APIToken permissions that Ignition's
 # first-boot auto-commissioning wipes from core security-properties.
 #
-# Why this exists: the lab pre-provisions an api-token (`cicd`) on every
-# gateway (local via the repo bind mount, test/production via setup.sh's pre-seed).
+# Why this exists: the lab provisions an api-token (`cicd`, generated per
+# clone by scripts/generate-api-keys.sh) on every gateway (local via the
+# repo bind mount, test/production via setup.sh's pre-seed).
 # But on a gateway's very FIRST boot, auto-commissioning (driven by
 # GATEWAY_ADMIN_USERNAME/PASSWORD) writes a fresh security-properties with
 # readPermissions/writePermissions set to Roles/Administrator only — which an

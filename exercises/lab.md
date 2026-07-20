@@ -83,17 +83,18 @@ Follows [`slides/assignment.html`](../slides/assignment.html) 1:1.
 ### Warm-up (together) — deploy to develop and production, and check the db-connections
 Pre-flight first (`validate.sh` green). Then create the two **deploy
 environments** on your fork — *Settings → Environments* → `lab-gateway-test`
-and `lab-gateway-production` — each with a secret named `IGNITION_API_KEY` holding
-the `cicd:…` token from `.env.example` (the pre-provisioned scan token; the
-same key works on every gateway in this lab). `deploy.yml` picks its
-environment from the deploy target, so without them nothing deploys. From the
-CLI instead of the UI:
+and `lab-gateway-production` — each with a secret named `IGNITION_API_KEY`
+holding that gateway's own key from your `.env` (`setup.sh` generated a
+unique `IGNITION_API_KEY_TEST` / `_PRODUCTION` per gateway — nothing
+key-related lives in the repo, and a test key won't authenticate against
+production). `deploy.yml` picks its environment from the deploy target, so
+without them nothing deploys. From the CLI instead of the UI:
 
 ```bash
 gh api -X PUT repos/<you>/cicd-lab-06-secrets-db-and-modules/environments/lab-gateway-test
 gh api -X PUT repos/<you>/cicd-lab-06-secrets-db-and-modules/environments/lab-gateway-production
-gh secret set IGNITION_API_KEY --env lab-gateway-test  --body 'cicd:<token from .env.example>'
-gh secret set IGNITION_API_KEY --env lab-gateway-production --body 'cicd:<token from .env.example>'
+gh secret set IGNITION_API_KEY --env lab-gateway-test  --body "$(grep '^IGNITION_API_KEY_TEST=' .env | cut -d= -f2-)"
+gh secret set IGNITION_API_KEY --env lab-gateway-production --body "$(grep '^IGNITION_API_KEY_PRODUCTION=' .env | cut -d= -f2-)"
 ```
 
 Now trigger `deploy.yml` for develop and

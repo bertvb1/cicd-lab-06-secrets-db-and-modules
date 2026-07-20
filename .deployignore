@@ -43,6 +43,9 @@ services/config/resources/local/
 services/config/resources/core/ignition/user-source/default/
 services/config/resources/core/ignition/user-source/opcua-module/
 services/config/resources/core/ignition/identity-provider/default/
+# The scan-API token is generated per gateway by setup.sh and never enters
+# git; the deploy wipe spares it on the target so the key survives deploys.
+services/config/resources/core/ignition/api-token/
 # Test/production gateway state (bind mounts) — never part of a deploy payload
 gateways/
 

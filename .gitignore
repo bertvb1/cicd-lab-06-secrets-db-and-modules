@@ -77,6 +77,11 @@ venv/
 **/config/resources/core/ignition/user-source/opcua-module/
 **/config/resources/core/ignition/identity-provider/default/
 
+# Scan-API tokens are generated per clone by scripts/generate-api-keys.sh
+# (values in .env, hash-only resources in each gateway's config tree). Never
+# commit them — that would ship working credentials to every fork.
+**/config/resources/core/ignition/api-token/
+
 # Test/production gateway state (bind mounts written by the gateways + CI deploys,
 # see docker-compose.yaml). The README stays so the folder is visible in
 # every clone.

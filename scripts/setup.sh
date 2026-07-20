@@ -6,10 +6,12 @@
 #     metadata; volatile-only churn is undone with
 #     scripts/clean-ignition-resource-churn.sh
 #   - ensures .env is in place
+#   - generates a unique API key per gateway into .env and writes the
+#     hash-only token resource into each gateway's config tree
+#     (scripts/generate-api-keys.sh — nothing key-related is committed)
 #   - brings up the stack (three Ignition gateways + shared TimescaleDB)
 #   - waits for ALL THREE gateways to become RUNNING
-#   - triggers an initial projects + config scan against the LOCAL gateway
-#     (only if its API key in .env is real, not the example placeholder).
+#   - triggers an initial projects + config scan against the LOCAL gateway.
 #     Test and production start empty by design — they get populated by the deploy
 #     and release workflows.
 #
@@ -112,7 +114,7 @@ ensure_env_file() {
     echo -e "${YELLOW}.env not found — copying from .env.example.${NC}"
     cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
     echo -e "${YELLOW}Edit .env to set gateway passwords; the IGNITION_API_KEY_* values${NC}"
-    echo -e "${YELLOW}are filled in after first login to each gateway.${NC}"
+    echo -e "${YELLOW}are generated automatically a few steps down.${NC}"
     echo ""
 }
 
@@ -144,33 +146,21 @@ runner_pat_reminder() {
 
 runner_pat_reminder
 
-# ---- Test/production gateway state dirs + API-token pre-seed ----------------------
+# ---- Test/production gateway state dirs + per-gateway API keys --------------
 # test and production bind-mount ./gateways/<gw>/{projects,config} (see
 # docker-compose.yaml) so you can verify a deploy landed straight from the
-# host: `ls gateways/test/projects`. Create the dirs before compose up and
-# pre-seed the committed `cicd` API token into config/ BEFORE the gateway's
-# first boot: the scan API only accepts tokens the gateway has LOADED, and
-# the deploy workflow cannot scan its own token in (chicken-and-egg — the
-# scan call already needs it). With the token on disk at first boot the
-# gateway loads it while commissioning; the 403 that commissioning's
-# permission reset causes is repaired further down.
+# host: `ls gateways/test/projects`. Create the dirs before compose up, then
+# generate each gateway's OWN API key into .env and write the matching
+# hash-only api-token resource into its config tree BEFORE first boot: the
+# scan API only accepts tokens the gateway has LOADED, and the deploy
+# workflow cannot scan its own token in (chicken-and-egg — the scan call
+# already needs it). Nothing key-related is committed — the token paths are
+# gitignored and the deploy wipe spares them on the gateway. The 403 that
+# commissioning's permission reset causes is repaired further down.
 seed_gateway_state() {
-    local gw token_src manifest_src core_dst
-    token_src="$PROJECT_ROOT/services/config/resources/core/ignition/api-token"
-    # The collection manifest MUST accompany any pre-seeded resource: on first
-    # boot the gateway creates the `core` collection and refuses a non-empty
-    # dir that has no manifest ("Resource collection path ... exists but is
-    # not empty" -> FAULTED).
-    manifest_src="$PROJECT_ROOT/services/config/resources/core/config-mode.json"
+    local gw
     for gw in test production; do
         mkdir -p "$PROJECT_ROOT/gateways/$gw/projects" "$PROJECT_ROOT/gateways/$gw/config"
-        core_dst="$PROJECT_ROOT/gateways/$gw/config/resources/core"
-        if [ -d "$token_src" ] && [ -f "$manifest_src" ] \
-           && [ ! -d "$core_dst/ignition/api-token" ]; then
-            mkdir -p "$core_dst/ignition"
-            cp "$manifest_src" "$core_dst/config-mode.json"
-            cp -R "$token_src" "$core_dst/ignition/"
-        fi
         # Per-gateway module manifest (see docker-compose.yaml): seed it from
         # the repo's manifest so the first boot has one; from then on ONLY
         # deploy.yml updates it. Must exist before compose up, or Docker
@@ -179,6 +169,7 @@ seed_gateway_state() {
             cp "$PROJECT_ROOT/services/modules.json" "$PROJECT_ROOT/gateways/$gw/modules.json"
         fi
     done
+    "$SCRIPT_DIR/generate-api-keys.sh"
 }
 
 seed_gateway_state
@@ -325,7 +316,7 @@ restore_secprops_after_commissioning
 # ---- API-permission repair (first boot only) ------------------------------
 # On the FIRST boot of a fresh gateway container, Ignition's auto-commissioning
 # resets the read/write permissions in security-properties, which locks the
-# pre-provisioned API key out: it still authenticates (bad key = 401) but every
+# generated API key out: it still authenticates (bad key = 401) but every
 # call gets 403. Detect that and graft the APIToken permissions back
 # (scripts/fix-gateway-api-perms.sh restarts the affected gateways). A 401 with
 # the correct key means the gateway never LOADED the token resource (e.g. the
@@ -335,19 +326,17 @@ restore_secprops_after_commissioning
 # setups skip all of this: the data volumes persist, so commissioning runs
 # only once.
 probe_scan_api() {
+    # Each gateway is probed with ITS OWN key from .env.
     curl -s -o /dev/null -w '%{http_code}' -m 10 -X POST \
-        -H "X-Ignition-API-Token: $IGNITION_API_KEY" \
+        -H "X-Ignition-API-Token: $(api_key_for "$1")" \
         "$(gateway_url "$1")/data/api/v1/scan/projects" || true
 }
 
 repair_api_perms() {
-    load_api_key_from_env local
-    if is_placeholder_api_key; then
-        return 0   # no key to probe with; initial_scan prints the guidance
-    fi
     local needs_fix=() needs_load=()
     local gw code
     for gw in "${LAB_GATEWAYS[@]}"; do
+        [ -n "$(api_key_for "$gw")" ] || continue   # no key to probe with
         code="$(probe_scan_api "$gw")"
         case "$code" in
             403) needs_fix+=("$gw") ;;
@@ -386,8 +375,7 @@ initial_scan() {
     load_api_key_from_env local
     if is_placeholder_api_key; then
         echo -e "${YELLOW}No API key in .env yet — skipping initial scan.${NC}"
-        echo "  The lab ships a pre-provisioned token; copy the IGNITION_API_KEY_* lines"
-        echo "  from .env.example into .env, then run:"
+        echo "  scripts/generate-api-keys.sh should have created one; run it, then:"
         echo "    scripts/scan.sh both --gateway local"
         return 0
     fi
@@ -426,16 +414,13 @@ echo "  Host: localhost  Port: 5432"
 echo "  Databases: ignition_local_development, ignition_test, ignition_production"
 echo "  Username: ${ACTUAL_PG_USER:-ignition}  Password: ${ACTUAL_PG_PASS:-(see .env)}"
 echo ""
-if is_placeholder_api_key; then
-    echo -e "${YELLOW}Next steps:${NC}"
-    echo "  The lab ships a pre-provisioned API token (services/config/.../api-token/cicd);"
-    echo "  copy the IGNITION_API_KEY_* lines from .env.example into .env — the same key"
-    echo "  works on all three gateways."
-    echo "  The deploy/release workflows take their keys from GitHub secrets on"
-    echo "  the lab-gateway-test / lab-gateway-production environments — set those too"
-    echo "  when you're ready to run CI."
-    echo ""
-fi
+echo "API keys (unique to this clone, generated into .env — never committed):"
+echo "  IGNITION_API_KEY_LOCAL / _TEST / _PRODUCTION — one per gateway;"
+echo "  scripts/scan.sh picks the right one via --gateway. For CI, copy the"
+echo "  _TEST and _PRODUCTION values from .env into the IGNITION_API_KEY"
+echo "  secret on the lab-gateway-test / lab-gateway-production GitHub"
+echo "  environments."
+echo ""
 echo "Useful commands:"
 echo "  docker compose ps                          # check container state"
 echo "  docker logs -f lab06-gateway-local-development        # tail local gateway logs"
