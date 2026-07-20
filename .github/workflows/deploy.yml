@@ -252,6 +252,28 @@ jobs:
           docker cp ./projects/.        "$IGNITION_CONTAINER:$GATEWAY_DATA_PATH/projects/"
           docker cp ./services/config/. "$IGNITION_CONTAINER:$GATEWAY_DATA_PATH/config/"
 
+          # First deploy to this gateway? Some config is only read at BOOT —
+          # most notably config-mode.json, which decides which deployment-mode
+          # collections (core + dev/prd) the gateway resolves. setup.sh seeds
+          # a gateway before it has ever been deployed to, so on the FIRST
+          # deploy the freshly shipped modes are on disk but not in effect,
+          # and the run looks green while the gateway ignores every dev/prd
+          # override. Mark the gateway once we have deployed to it, and tell
+          # the scan step to restart when that mark was missing.
+          # The marker lives under config/local/ — the per-instance subtree the
+          # wipe step preserves and .deployignore never overwrites. Anywhere
+          # else under config/ would be wiped on every run, making every
+          # deploy look like a first deploy.
+          marker="$GATEWAY_DATA_PATH/config/local/.mustry-deployed"
+          if docker exec "$IGNITION_CONTAINER" test -f "$marker" 2>/dev/null; then
+            echo "FIRST_DEPLOY=false" >> "$GITHUB_ENV"
+            echo "Gateway has been deployed to before — config reloads hot."
+          else
+            echo "FIRST_DEPLOY=true" >> "$GITHUB_ENV"
+            echo "First deploy to this gateway — it will restart to load deployment modes."
+          fi
+          docker exec "$IGNITION_CONTAINER" sh -c "mkdir -p '$(dirname "$marker")' && date -u > '$marker'"
+
       - name: Trigger gateway scan
         # Call the scan API inline rather than scripts/scan.sh: the prune
         # step above removes scripts/ (it is in .deployignore), so that script is
@@ -283,19 +305,38 @@ jobs:
               fi
             done
           }
+          wait_for_running() {
+            for _ in $(seq 1 60); do
+              if curl -fsS --max-time 3 "$IGNITION_URL/StatusPing" 2>/dev/null | grep -q RUNNING; then
+                return 0
+              fi
+              sleep 5
+            done
+            echo "gateway did not come back after restart" >&2
+            return 1
+          }
+
+          # First deploy to this gateway: config-mode.json and the deployment
+          # modes it selects are only read at BOOT, so scanning now would
+          # apply the shipped config against the modes the gateway started
+          # with. Restart FIRST, then scan — otherwise the run goes green and
+          # the student still has to restart the gateway by hand to see their
+          # dev/prd overrides take effect.
+          if [ "${FIRST_DEPLOY:-false}" = "true" ]; then
+            echo "First deploy — restarting $IGNITION_CONTAINER so it loads the"
+            echo "deployment modes and API token that just shipped."
+            docker restart "$IGNITION_CONTAINER"
+            wait_for_running
+          fi
+
           rc=0
           run_scans || rc=$?
           if [ "$rc" = "42" ]; then
             echo "Scan not authorized — the gateway has not loaded the deployed"
-            echo "API token / security-properties yet (first deploy to a fresh"
-            echo "gateway). Restarting it to load them, then retrying."
+            echo "API token / security-properties yet. Restarting it to load"
+            echo "them, then retrying."
             docker restart "$IGNITION_CONTAINER"
-            for _ in $(seq 1 60); do
-              if curl -fsS --max-time 3 "$IGNITION_URL/StatusPing" 2>/dev/null | grep -q RUNNING; then
-                break
-              fi
-              sleep 5
-            done
+            wait_for_running
             run_scans
           elif [ "$rc" != "0" ]; then
             exit "$rc"
