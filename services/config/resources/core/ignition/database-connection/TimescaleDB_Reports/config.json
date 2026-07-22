@@ -11,14 +11,11 @@
   "failoverProfile": "",
   "includeSchemaInTableName": false,
   "password": {
-    "type": "Embedded",
     "data": {
-      "ciphertext": "6acymW2_HyOBgr9Jmv0BKmud8oY",
-      "encrypted_key": "MzvSihSUR2L-6XS-lD2kw-JdIKs5fcDtuPP3m-1YZom7uOvHdG82RA",
-      "iv": "ctHvUgNU9EwpbNJw",
-      "protected": "eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2R0NNIiwiaWF0IjoxNzgzOTQ2MDc3LCJraWQiOiIyYmI1YmVkOC0xN2FhLTQyZDktOGJhMC0zMzFjYmQ4ZDk3MzciLCJ6aXAiOiJERUYifQ",
-      "tag": "f4xHrORQeeqGsLDlD4e87A"
-    }
+      "providerName": "LabSecrets",
+      "secretName": "REPORTING_PASSWORD"
+    },
+    "type": "Referenced"
   },
   "poolInitSize": 0,
   "poolMaxActive": 8,
