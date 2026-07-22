@@ -1,0 +1,1 @@
+DROP TABLE downtime_log;
