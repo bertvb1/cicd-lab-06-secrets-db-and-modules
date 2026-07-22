@@ -99,7 +99,6 @@ jobs:
       IGNITION_CONTAINER: ${{ vars.IGNITION_CONTAINER || format('lab06-gateway-{0}', inputs.target || 'test') }}
       IGNITION_API_KEY: ${{ secrets.IGNITION_API_KEY }}
       GATEWAY_DATA_PATH: /usr/local/bin/ignition/data
-
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
@@ -121,11 +120,22 @@ jobs:
             exit 1
           fi
           echo "Prerequisites OK (target=$DEPLOY_TARGET container=$IGNITION_CONTAINER state=$state)."
-
+          umask 177                    # files land 0600
+          mkdir -p secrets
+          printf '%s' "$POSTGRES_PASSWORD" \
+            > secrets/postgres_password.txt
       # Part 1C: add your "Materialize secret files" step HERE — it turns the
       # GitHub environment secrets into files under secrets/ (umask 177 +
       # printf '%s'). Without it the step below finds nothing and ships
       # nothing, which is exactly the warm-up's broken state.
+      - name: Materialize secret files
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          umask 177                    # files land 0600
+          mkdir -p secrets
+          printf '%s' "$POSTGRES_PASSWORD" \
+            > secrets/postgres_password.txt
 
       - name: Ship secret files into gateway container
         # Hands whatever the Materialize step wrote under secrets/ to the

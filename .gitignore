@@ -106,3 +106,6 @@ venv/
 **/themes.digest.json
 **/fonts.digest.json
 **/icons.digest.json
+Notes.local.md
+PERMISSIONS-FIXES-PORTING-NOTES.md
+FEEDBACK.md
