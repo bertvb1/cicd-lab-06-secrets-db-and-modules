@@ -128,11 +128,14 @@ jobs:
       - name: Materialize secret files
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          REPORTING_PASSWORD: ${{ secrets.REPORTING_PASSWORD }}
         run: |
-          umask 177                    # files land 0600
+          umask 177
           mkdir -p secrets
           printf '%s' "$POSTGRES_PASSWORD" \
             > secrets/postgres_password.txt
+          printf '%s' "$REPORTING_PASSWORD" \
+            > secrets/reporting_password.txt
 
       - name: Ship secret files into gateway container
         # Hands whatever the Materialize step wrote under secrets/ to the

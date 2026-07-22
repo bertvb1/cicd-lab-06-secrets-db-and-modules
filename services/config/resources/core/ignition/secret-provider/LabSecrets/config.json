@@ -1,0 +1,19 @@
+{
+  "profile": {
+    "type": "file"
+  },
+  "settings": {
+    "files": {
+      "POSTGRES_PASSWORD": {
+        "description": "",
+        "filePath": "/run/secrets/postgres_password",
+        "fileType": "CLEARTEXT"
+      },
+      "REPORTING_PASSWORD": {
+        "description": "",
+        "filePath": "/run/secrets/reporting_password",
+        "fileType": "CLEARTEXT"
+      }
+    }
+  }
+}
