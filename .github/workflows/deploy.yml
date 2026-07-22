@@ -120,10 +120,7 @@ jobs:
             exit 1
           fi
           echo "Prerequisites OK (target=$DEPLOY_TARGET container=$IGNITION_CONTAINER state=$state)."
-          umask 177                    # files land 0600
-          mkdir -p secrets
-          printf '%s' "$POSTGRES_PASSWORD" \
-            > secrets/postgres_password.txt
+
       # Part 1C: add your "Materialize secret files" step HERE — it turns the
       # GitHub environment secrets into files under secrets/ (umask 177 +
       # printf '%s'). Without it the step below finds nothing and ships
