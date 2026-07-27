@@ -133,5 +133,11 @@
     "filename": "/usr/local/bin/ignition/user-lib/modules/Web Developer Module.modl",
     "onStartup": "enabled",
     "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+  },
+  "dev.bwdesigngroup.flint.FlintDesignerBridge": {
+    "filename": "/third-party-modules/Flint-Designer-Bridge-1.2.0-8.3.modl",
+    "onStartup": "enabled",
+    "certFingerprint": "7eeb95841827f50c0b617e2a33f4cb26df7e8a12",
+    "licenseAgreementHash": 2550198668
   }
 }
