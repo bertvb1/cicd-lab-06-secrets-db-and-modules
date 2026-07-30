@@ -85,6 +85,12 @@ venv/
 **/config/resources/core/ignition/user-source/default/
 **/config/resources/core/ignition/user-source/opcua-module/
 **/config/resources/core/ignition/identity-provider/default/
+# ...and the temp_N identity commissioning invents when it finds the
+# security-properties policy without a matching user source (a wiped data
+# volume next to a surviving config tree — see Part 3's negative test). Same
+# admin hash, same lockout, so it is never committed either.
+**/config/resources/core/ignition/user-source/temp*/
+**/config/resources/core/ignition/identity-provider/temp*/
 
 # Scan-API tokens are generated per clone by scripts/generate-api-keys.sh
 # (values in .env, hash-only resources in each gateway's config tree). Never

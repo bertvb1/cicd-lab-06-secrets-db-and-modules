@@ -68,13 +68,43 @@ All four flows ran green through the actual GitHub Actions pipeline:
 - **ci.yml**: all three jobs (Lint incl. ign-lint, Validate, Secret scan)
   green on PR #2.
 
-**OPEN (added 2026-07-20): the tag release flow is NOT yet E2E-verified.**
-1D's production promotion changed from a manual dispatch to the Lab 04
-routing: a `v*` tag fires the new thin `release.yml`, which calls `deploy.yml`
-(workflow_call, `target: production`, `secrets: inherit`). actionlint is
-green; before the course, push a `v*` tag on the upstream repo and confirm the
-called run picks up the `lab-gateway-production` environment secrets and goes
-green end to end.
+**Re-run on a real personal FORK, whole lab end to end (2026-07-30).** Nothing
+left open: warm-up (dispatch to both targets, both Faulted), 1A–1D, 2A–2B, 3
+and a `v1.1.0` tag all green, and verified from the outside rather than from the
+run log — `pg_stat_activity` shows the test gateway connected to
+`ignition_test` as **both** `ignition` and `reporting` and production likewise
+to `ignition_production` (so both connections Valid, `TimescaleDB_Reports` on
+its own database), `schema_migrations` at version 2 on test *and* production
+applied by the runs, three modules Running on local and test. The
+tag → `release.yml` → `deploy.yml` (`workflow_call`, `target: production`) path
+is confirmed: it also migrates `ignition_production` and restarts for the module
+manifest, i.e. the steps students add in 1C/2B do reach production unchanged.
+
+Fork-specific gotchas that cost time and are worth saying out loud on the day:
+
+- **A fresh fork blocks every automatic trigger** until someone clicks
+  *Actions → "I understand my workflows, go ahead and enable them"*. Symptom:
+  PR/merge/tag produce **no run and no error**. `repos/…/actions/permissions`
+  already reports `enabled:true`, per-workflow `/enable` calls change nothing —
+  there is no API for that button. `Run workflow` (workflow_dispatch) is the
+  only thing that works before the click, which is why the warm-up can look
+  fine while 1D silently does nothing.
+- A fork inherits `default_workflow_permissions: read`. Harmless here (this
+  lab's workflows only need `contents: read`), but it is what breaks Lab 05's
+  GHCR stretch: a fork cannot push packages with `GITHUB_TOKEN` at all
+  (`denied: permission_denied: write_package`, even with `Packages: write` in
+  the job's token).
+- `gh auth token` has no `delete_repo` scope, so cleaning up student forks is a
+  web-UI job (or `gh auth refresh -h github.com -s delete_repo` first).
+
+**CLOSED 2026-07-30: the tag release flow is E2E-verified.** 1D's production
+promotion uses the Lab 04 routing — a `v*` tag fires the thin `release.yml`,
+which calls `deploy.yml` (workflow_call, `target: production`,
+`secrets: inherit`). Confirmed on a fork: the called run resolves the
+`lab-gateway-production` environment (its `IGNITION_API_KEY`,
+`POSTGRES_PASSWORD`, `REPORTING_PASSWORD`), materializes the secret files,
+migrates `ignition_production` and ships — green in ~15 s when production has
+been deployed to before (no first-deploy restart).
 
 The runnable answer key lives on the **`rehearsal/lab-solutions`** branch
 (PR #2, draft, never to be merged): the Materialize + Migrate steps at their
@@ -176,10 +206,13 @@ student never types the fingerprint/hash: the gateway computes them.
   `gh run rerun <id> --failed` cleared them; don't chase ghosts.
 - Students with an EXISTING lab04-era database volume: the lab assumes a
   fresh `lab06` compose project (fresh volumes) — `db-init` only runs on
-  first init. Say it out loud at the start.
-- Slides 1A/1C say "before compose up" — this repo's deploy.yml has no
-  compose up; the insertion-point comments say "before the ship steps".
-  Align the slides or the workflow, whichever you prefer.
+  first init. Say it out loud at the start. The compose file now pins
+  `name: cicd-lab06`, so a second clone of THIS lab (a fork sitting next to the
+  course repo) no longer silently inherits the other clone's containers and
+  timescaledb volume — but a lab04 volume is still a different stack.
+- FIXED 2026-07-30: 1A/1C used to say "before compose up", which this repo's
+  deploy.yml has no step for. Both now point at the marked insertion comment
+  (`# Part 1C`), i.e. before the pre-wired "Ship secret files" step.
 - RAM: 3 gateways + DB + runner ≈ 8 GB — unchanged from Lab 04.
 
 ## B. Answer key (sketch)
@@ -193,7 +226,12 @@ exists in core** (the Reports connection's database target).
 ### Part 1
 - 1A: top-level `secrets:` block backed by `./secrets/*.txt`,
   `POSTGRES_PASSWORD_FILE` + `REPORTING_PASSWORD_FILE` on the DB service,
-  both secrets attached to `gateway-local-development`. `docker inspect` now clean.
+  and **both** secrets attached to **both** services — `gateway-local-development`
+  *and* `timescaledb`. Attaching only `postgres_password` to the DB service (what
+  the slide used to show) leaves `REPORTING_PASSWORD_FILE` pointing at a file
+  that isn't mounted: invisible on an existing volume, but on the next fresh
+  volume `db-init/` aborts on `REPORTING_PASSWORD (or _FILE) must be set` and
+  Postgres never initializes. `docker inspect` now clean.
 - 1B: file-type provider `LabSecrets` with `POSTGRES_PASSWORD` →
   `/run/secrets/postgres_password`, `REPORTING_PASSWORD` →
   `/run/secrets/reporting_password`; both connections re-pointed to

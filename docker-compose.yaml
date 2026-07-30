@@ -24,11 +24,22 @@
 #
 # NOTE (Part 1A of the lab): the database passwords below enter the containers
 # as ENVIRONMENT VARIABLES — anyone who can `docker inspect` reads them in
-# plaintext. Part 1 of the lab moves them to file-based secrets (a top-level
-# `secrets:` block + POSTGRES_PASSWORD_FILE + files under ./secrets/). That
+# plaintext. Part 1 of the lab moves them to file-based secrets: a top-level
+# `secrets:` block backed by ./secrets/*.txt, POSTGRES_PASSWORD_FILE +
+# REPORTING_PASSWORD_FILE on the DB service, and BOTH secrets attached to BOTH
+# services (the DB service also because db-init/ reads the reporting file on a
+# fresh volume; the gateway because its secret provider resolves them). That
 # edit is the exercise, so this file ships WITHOUT it.
 
 ---
+# `name:` pins the Compose project so this stack always resolves to THESE
+# containers and volumes, whichever directory you run compose from. Without it
+# the project name comes from the folder name, so a second clone of this lab
+# (a fork next to the course repo, a scratch checkout) silently adopts the other
+# one's containers and its timescaledb volume — and db-init/, which only runs on
+# a first volume init, never runs for the new clone.
+name: cicd-lab06
+
 # YAML anchors for the bits that don't differ across the three gateways. Each
 # service merges these in and overrides the parts that do (ports, admin creds,
 # the gateway name passed to the wrapper, volumes).
