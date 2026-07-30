@@ -12,7 +12,7 @@
   "includeSchemaInTableName": false,
   "password": {
     "data": {
-      "providerName": "LabSecrets",
+      "providerName": "internal",
       "secretName": "REPORTING_PASSWORD"
     },
     "type": "Referenced"

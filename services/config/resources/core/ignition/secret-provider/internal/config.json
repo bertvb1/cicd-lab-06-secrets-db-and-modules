@@ -1,0 +1,19 @@
+{
+  "profile": {
+    "type": "internal"
+  },
+  "settings": {
+    "secrets": {
+      "REPORTING_PASSWORD": {
+        "ciphertext": {
+          "ciphertext": "ezOvKkKe7Vn4ZRBVWwh4_NcBA_s",
+          "encrypted_key": "OfA-YpXdIGOjf4_kDC0dQgo5hMBB9m_DLnLROBBtDLW9sdcRLu4JbA",
+          "iv": "MoVPKqx_UW1SWipq",
+          "protected": "eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2R0NNIiwiaWF0IjoxNzg1NDM5MzExLCJ6aXAiOiJERUYiLCJraWQiOiIyYmI1YmVkOC0xN2FhLTQyZDktOGJhMC0zMzFjYmQ4ZDk3MzcifQ",
+          "tag": "RBYKVTbeBzxJokcuY740YQ"
+        },
+        "description": ""
+      }
+    }
+  }
+}
