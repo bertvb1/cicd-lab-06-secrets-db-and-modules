@@ -1,0 +1,1 @@
+SELECT area, minutes, reason FROM downtime_log
