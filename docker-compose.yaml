@@ -116,9 +116,15 @@ x-ignition-healthcheck: &ignition-healthcheck
   retries: 10
   start_period: 90s
 
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  reporting_password:
+    file: ./secrets/reporting_password.txt
 services:
   # --- local gateway: edits on the host show up here immediately --------------
   gateway-local-development:
+    secrets: [postgres_password, reporting_password]
     image: inductiveautomation/ignition:8.3.8
     container_name: lab06-gateway-local-development
     hostname: lab06-gateway-local-development
@@ -290,6 +296,7 @@ services:
   # so the same _FILE convention as POSTGRES_PASSWORD_FILE works once you
   # move to file-based secrets.
   timescaledb:
+    secrets: [postgres_password, reporting_password]
     image: timescale/timescaledb:latest-pg16
     container_name: lab06-timescaledb
     restart: unless-stopped
@@ -305,9 +312,9 @@ services:
         max-file: "10"
     environment:
       POSTGRES_USER: "${POSTGRES_USER:-ignition}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-lab06-postgres-pw}"
+      POSTGRES_PASSWORD: /run/secrets/postgres_password
       POSTGRES_DB: ignition_local_development
-      REPORTING_PASSWORD: "${REPORTING_PASSWORD:-lab06-reporting-pw}"
+      REPORTING_PASSWORD: /run/secrets/reporting_password
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ignition}"]
       interval: 5s

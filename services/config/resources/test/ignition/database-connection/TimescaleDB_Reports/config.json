@@ -1,5 +1,5 @@
 {
-  "connectURL": "jdbc:postgresql://timescaledb:5432/ignition_local_development",
+  "connectURL": "jdbc:postgresql://timescaledb:5432/ignition_test",
   "connectionProps": "",
   "connectionResetParams": "",
   "defaultTransactionLevel": "DEFAULT",
