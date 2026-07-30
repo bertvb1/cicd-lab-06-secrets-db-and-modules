@@ -130,6 +130,7 @@ secrets:
     file: ./secrets/postgres_password.txt
   reporting_password:
     file: ./secrets/reporting_password.txt
+
 services:
   # --- local gateway: edits on the host show up here immediately --------------
   gateway-local-development:
@@ -305,7 +306,7 @@ services:
   # so the same _FILE convention as POSTGRES_PASSWORD_FILE works once you
   # move to file-based secrets.
   timescaledb:
-    secrets: [postgres_password, reporting_password]
+    secrets: [postgres_password]
     image: timescale/timescaledb:latest-pg16
     container_name: lab06-timescaledb
     restart: unless-stopped
@@ -321,9 +322,9 @@ services:
         max-file: "10"
     environment:
       POSTGRES_USER: "${POSTGRES_USER:-ignition}"
-      POSTGRES_PASSWORD: /run/secrets/postgres_password
       POSTGRES_DB: ignition_local_development
-      REPORTING_PASSWORD: /run/secrets/reporting_password
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      REPORTING_PASSWORD_FILE: /run/secrets/reporting_password
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ignition}"]
       interval: 5s
