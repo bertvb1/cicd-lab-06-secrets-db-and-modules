@@ -13,7 +13,7 @@
   "password": {
     "data": {
       "providerName": "LabSecrets",
-      "secretName": "REPORTING_PASSWORD"
+      "secretName": "POSTGRES_PASSWORD"
     },
     "type": "Referenced"
   },
