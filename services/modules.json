@@ -8,12 +8,12 @@
   "com.inductiveautomation.alarm-notification": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/Alarm Notification-module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
   },
   "com.inductiveautomation.connectors.kafka": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/Kafka Connector-module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
   },
   "com.inductiveautomation.eam": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/Enterprise Administration-module.modl",
@@ -22,17 +22,17 @@
   "com.inductiveautomation.eventstream": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/EventStream-module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
   },
   "com.inductiveautomation.historian": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/Historian-module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
   },
   "com.inductiveautomation.historian.sql": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/SQL Historian-module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
   },
   "com.inductiveautomation.jdbc.mariadb": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/MariaDB JDBC Driver Module.modl",
@@ -45,12 +45,12 @@
   "com.inductiveautomation.jdbc.postgresql": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/PostgreSQL JDBC Driver Module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
   },
   "com.inductiveautomation.opcua": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/OPC-UA-module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
   },
   "com.inductiveautomation.opcua.drivers.ablegacy": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/Allen-Bradley Drivers-module.modl",
@@ -79,7 +79,7 @@
   "com.inductiveautomation.opcua.drivers.modbus": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/Modbus Driver v2-module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
   },
   "com.inductiveautomation.opcua.drivers.omron": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/Omron-Driver.modl",
@@ -96,17 +96,17 @@
   "com.inductiveautomation.opcua.drivers.tcpudp": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/UDP and TCP Drivers-module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
   },
   "com.inductiveautomation.perspective": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/Perspective-module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
   },
   "com.inductiveautomation.reporting": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/Reporting-module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
   },
   "com.inductiveautomation.sfc": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/SFC-module.modl",
@@ -123,7 +123,7 @@
   "com.inductiveautomation.symbol-factory": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/Symbol Factory-module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
   },
   "com.inductiveautomation.vision": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/Vision-module.modl",
@@ -132,24 +132,30 @@
   "com.inductiveautomation.webdev": {
     "filename": "/usr/local/bin/ignition/user-lib/modules/Web Developer Module.modl",
     "onStartup": "enabled",
-    "certFingerprint": "0299d53c38bdbe7ca79bd6c778a5bab884e4c813"
+    "certFingerprint": "88338069eb9c3f2d46a4baf701e4fa71bf073293"
+  },
+  "com.mussonindustrial.embr.charts": {
+    "filename": "/third-party-modules/Embr-Charts-Ignition83-4.0.1.modl",
+    "onStartup": "enabled",
+    "certFingerprint": "e5a3cf3f06627c175b68b0122ac8f2c3f9c992e2",
+    "licenseAgreementHash": 3266212556
+  },
+  "com.mussonindustrial.embr.periscope": {
+    "filename": "/third-party-modules/Embr-Periscope-Ignition83-0.12.0.modl",
+    "onStartup": "enabled",
+    "certFingerprint": "e5a3cf3f06627c175b68b0122ac8f2c3f9c992e2",
+    "licenseAgreementHash": 101444854
+  },
+  "com.mustry.historian.timescaledb": {
+    "filename": "/third-party-modules/TimescaleDB-Historian.modl",
+    "onStartup": "enabled",
+    "certFingerprint": "003f467208c9abf8b178960c01e102bb76a9cc98",
+    "licenseAgreementHash": 106690219
   },
   "dev.bwdesigngroup.flint.FlintDesignerBridge": {
     "filename": "/third-party-modules/Flint-Designer-Bridge-1.2.0-8.3.modl",
     "onStartup": "enabled",
     "certFingerprint": "7eeb95841827f50c0b617e2a33f4cb26df7e8a12",
     "licenseAgreementHash": 2550198668
-  },
-  "com.mussonindustrial.embr.periscope": {
-  "filename": "/third-party-modules/Embr-Periscope-Ignition83-0.12.0.modl",
-  "onStartup": "enabled"
-},
-"com.mussonindustrial.embr.charts": {
-  "filename": "/third-party-modules/Embr-Charts-Ignition83-4.0.1.modl",
-  "onStartup": "enabled"
-},
-"com.mustry.historian.timescaledb": {
-  "filename": "/third-party-modules/TimescaleDB-Historian.modl",
-  "onStartup": "enabled"
-}
+  }
 }
