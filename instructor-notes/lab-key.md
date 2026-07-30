@@ -112,6 +112,40 @@ insertion points, the `TimescaleDB_Reports` test override, the `0002` pair,
 and the enabled Periscope entry. To re-verify any flow, dispatch `deploy.yml`
 from that branch with `target=test`.
 
+### A5. The temp identity — closed for good (2026-07-30)
+
+The stash-during-commissioning guard (A1/A2) only ever asked the CONFIG TREE
+"is this a first boot?" (`does user-source/default exist?`), while the gateway
+answers it from its DATA VOLUME. Lose the volume without the gitignored
+identity dirs going with it — `docker volume rm`, `compose down -v`, a Docker
+Desktop cleanup, Part 3's negative test — and the two disagree: setup.sh
+skipped the stash and the gateway commissioned anyway, inventing a `temp`
+identity and rewriting the TRACKED `security-properties` to point at it (the
+APIToken permissions get stripped on the way). Reproduced on the pristine repo
+with plain `scripts/setup.sh`: exit 0, "Setup complete!", scan HTTP 200 — and a
+tree holding `systemAuthProfile: temp`. Silent, because the API-permission
+graft repairs the symptom.
+
+Why it matters: `git add -A` then commits that policy, and deploy.yml ships it
+to gateways whose wipe step deletes any `temp` dirs — a policy naming a profile
+that does not exist, which is the course-day lockout shape.
+
+Now (labs 04, 05 and 06 all carry this):
+- `local_will_commission()` asks the data volume (does it hold an internal db?),
+  and an answer it cannot get counts as "commissioned" so a live gateway's
+  identity is never deleted on a guess.
+- When it will commission, the stale identity dirs are removed first, so
+  commissioning writes a clean `default`.
+- `heal_temp_identity()` runs on every setup: a `temp*` profile is restored
+  from git, the temp dirs deleted, the gateway restarted.
+- `teardown.sh --volumes` removes `temp*` too; `.gitignore` covers `temp*`.
+- `validate.sh` + `ci.yml` fail if `security-properties` names a `temp*`
+  profile — the commit path, caught before a deploy.
+
+Verified per lab, four cases each: fresh setup, break-with-bare-compose-up →
+heal, the original volume-only-wipe case, and a headless admin login after each
+(`"success":true`).
+
 ### A3. Module-manifest behaviour (all verified live — read before editing
 ### Part 3)
 
