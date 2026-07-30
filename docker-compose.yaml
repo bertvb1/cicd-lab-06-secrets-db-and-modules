@@ -125,6 +125,7 @@ secrets:
 services:
   # --- local gateway: edits on the host show up here immediately --------------
   gateway-local-development:
+    secrets: [postgres_password, reporting_password]
     image: inductiveautomation/ignition:8.3.8
     container_name: lab06-gateway-local-development
     hostname: lab06-gateway-local-development
