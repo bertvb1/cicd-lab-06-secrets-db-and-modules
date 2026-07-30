@@ -13,13 +13,12 @@ references throughout.
 * 60 min you-do ([`slides/assignment.html`](../slides/assignment.html) mirrors this file)
 * Debrief
 
-<!-- Infra status: the scaffolding (compose stack, secrets/ dir, db-migration/
-     + scripts/migrate.sh, spare .modl, ci.yml secret scan, deploy.yml skeleton
-     with the 1C/2B insertion points marked) is built, and the seeded broken
-     state is verified live on 8.3.6 (local Valid, test Faulted on "Unable to
-     decrypt ciphertext"; migrate.sh up/down/version green). Still open before
-     the course: the fork-side pipeline runs — see instructor-notes/lab-key.md
-     §A2. -->
+<!-- Infra status: verified end to end on a real personal fork on 2026-07-30 —
+     warm-up, 1A-1D, 2A-2B, 3, the Part 3 negative test and a v* tag release,
+     all green on 8.3.8, checked from outside the run logs (pg_stat_activity per
+     gateway, schema_migrations on test AND production, module startup lines).
+     Nothing open. See instructor-notes/lab-key.md §A2 for the fork-specific
+     gotchas (the Actions enable click above all). -->
 
 ## Goal
 
@@ -46,7 +45,18 @@ scripts/validate.sh       # green before you start
 
 The warm-up, Parts 1C–1D and 2B need your fork with Actions enabled (same setup
 as Lab 04): the pipeline is what deploys, writes the secret files and runs the
-migrations. Also point `gh` at your fork once —
+migrations.
+
+> **Enable Actions on your fork first — this one is not optional.** Open your
+> fork's *Actions* tab and click the green **"I understand my workflows, go
+> ahead and enable them"** button. A fresh fork ships with every automatic
+> trigger switched off, and the failure mode is silent: your PR, your merge and
+> your `v*` tag produce **no workflow run and no error message anywhere**. If a
+> step below says "watch the run" and the Actions tab is empty, this is why.
+> (There is no CLI or API for this button — only *Run workflow* on an
+> already-registered workflow works without it.)
+
+Also point `gh` at your fork once —
 `gh repo set-default <you>/cicd-lab-06-secrets-db-and-modules` — it's stored per
 clone, so your Lab 03/04 setting doesn't carry over. The warm-up's `gh secret set`
 commands (and any `gh pr create`) resolve against this default; without it they
@@ -84,7 +94,7 @@ ask which repo you mean, or target the course repo.
 
 Follows [`slides/assignment.html`](../slides/assignment.html) 1:1.
 
-### Warm-up (together) — deploy to develop and production, and check the db-connections
+### Warm-up (together) — deploy to test and production, and check the db-connections
 Pre-flight first (`validate.sh` green). Then create the two **deploy
 environments** on your fork — *Settings → Environments* → `lab-gateway-test`
 and `lab-gateway-production` — each with a secret named `IGNITION_API_KEY`
@@ -101,8 +111,8 @@ gh secret set IGNITION_API_KEY --env lab-gateway-test  --body "$(grep '^IGNITION
 gh secret set IGNITION_API_KEY --env lab-gateway-production --body "$(grep '^IGNITION_API_KEY_PRODUCTION=' .env | cut -d= -f2-)"
 ```
 
-Now trigger `deploy.yml` for develop and
-for production from the Actions tab and watch both runs go green. Now open the develop
+Now trigger `deploy.yml` for test and
+for production from the Actions tab and watch both runs go green. Now open the test
 gateway, Config → Databases → Connections: both connections (`TimescaleDB` and
 `TimescaleDB_Reports`) are **Faulted**; production shows the same. Write the diagnosis
 question in `NOTES.local.md`: the pipeline is green and the gateway is broken —
@@ -122,17 +132,19 @@ values and the per-environment database target.)
 Two db-connections, same database server, different users: `TimescaleDB` logs in
 as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
 - **1A.** Both passwords become secret files: compose `environment:` → files
-  mounted at `/run/secrets/postgres_password` and `/run/secrets/reporting_password`
-  (`POSTGRES_PASSWORD_FILE` on the DB service; both secrets also attached to the
-  gateway service). Keep the same values — Postgres only sets them on first
-  volume init.
+  mounted at `/run/secrets/postgres_password` and `/run/secrets/reporting_password`.
+  A top-level `secrets:` block declares both files, and **both** get attached to
+  **both** services — the DB service (`POSTGRES_PASSWORD_FILE` +
+  `REPORTING_PASSWORD_FILE`, and `db-init/` reads the reporting file on a fresh
+  volume) and the gateway service (its provider reads them in 1B). Keep the same
+  values — Postgres only sets them on first volume init.
 - **1B.** Create a **file-type secret provider** (`LabSecrets`) on the local
   gateway with secrets `POSTGRES_PASSWORD` and `REPORTING_PASSWORD`; re-point
   **both** connections at their **referenced** secret (in every deployment
   mode that overrides the password field). Then check `git status`: the UI
   writes the provider into the **active mode's collection**
   (`resources/local-development/ignition/secret-provider/`), and `local-development` never deploys —
-  develop would fault on a missing provider while local stays green. Move it
+  test would fault on a missing provider while local stays green. Move it
   to core and rescan:
 
   ```bash
@@ -141,7 +153,7 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
   ```
 
   Finally, grep the exported config to prove no value leaked.
-- **1C.** Build the fix for develop, in two halves: add the **test
+- **1C.** Build the fix for test, in two halves: add the **test
   deployment-mode override** for `TimescaleDB_Reports`
   (`…resources/test/ignition/database-connection/TimescaleDB_Reports/config.json`,
   connectURL → `ignition_test`) **and its `production` twin** (connectURL →
@@ -150,12 +162,17 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
   `POSTGRES_PASSWORD` + `REPORTING_PASSWORD` as secrets on **both** the
   `lab-gateway-test` and `lab-gateway-production` environments plus the
   **Materialize secret files** step in `deploy.yml`
-  (umask 177 + `printf`, before `compose up`). Nothing is deployed yet.
+  (umask 177 + `printf`, at the marked `# Part 1C` comment — i.e. before the
+  pre-wired "Ship secret files" step that hands them to the gateway). Nothing is
+  deployed yet.
 - **1D.** The full deploy moment, every station separately: **branch**
-  (`feature/fix-test-db-connections`) → **commit & push** (no secret values in
-  the diff) → **open the PR** → **watch the PR validate** (`ci.yml` green) →
+  (`feature/fix-test-db-connections`) → **commit & push** (your diff **adds** no
+  secret value — `scripts/validate.sh`'s secret scan is the check. Grepping the
+  diff for the password does hit, on the `-` lines: you are *deleting* the dummy
+  defaults that were already committed in `docker-compose.yaml`) → **open the
+  PR** → **watch the PR validate** (`ci.yml` green) →
   **merge** → **watch the pipeline deploy** (materialize secrets → up → scan →
-  verify) → **verify develop** (both connections Valid, `TimescaleDB_Reports`
+  verify) → **verify test** (both connections Valid, `TimescaleDB_Reports`
   on `ignition_test`) → **release to production with a tag** (`git tag v1.0.0
   && git push origin v1.0.0` — the Lab 04 routing: the tag, not the merge, is
   what ships to production. `release.yml` fires on the tag and runs the same
@@ -163,12 +180,20 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
   including the ones you added — different environment) → **verify production**
   (both Valid, `TimescaleDB_Reports` on `ignition_production`). Fork carried a
   stale `v1.0.0` over? `git tag -l`, take the next free number.
-- **Gate:** both connections Valid on develop AND production, fixed by the pipeline
+- **Gate:** both connections Valid on test AND production, fixed by the pipeline
   and not by hand, and you can narrate: GitHub secret → file → provider →
   reference.
 
 ### Part 2 — ship a schema change as a migration (±20 min)
-- **2A.** Write `db-migration/migrate/0002_add_downtime_log.up.sql` **and** `.down.sql`; apply with `scripts/migrate.sh up`; read `schema_migrations` (version 2, not dirty); re-run to see idempotency. Note: golang-migrate will NOT stop you editing an applied migration — that discipline is a written rule (the production repo's `docs/MIGRATIONS.md`), not a tool feature.
+- **2A.** Write `db-migration/migrate/0002_add_downtime_log.up.sql` **and**
+  `.down.sql`; apply with `scripts/migrate.sh up`; read `schema_migrations`
+  (version 2, not dirty); re-run to see idempotency (`no change`). Your stack
+  starts with **nothing applied** — `scripts/migrate.sh version` says
+  `error: no migration` before you begin, and this first `up` applies `0001`
+  *and* your `0002` in one go, which is what "replayable from zero" means.
+  Note: golang-migrate will NOT stop you editing an applied migration — that
+  discipline is a written rule (the production repo's `docs/MIGRATIONS.md`), not
+  a tool feature.
 - **2B.** Add the migrate step to `deploy.yml` exactly at the marked
   `# Part 2B: add your "Migrate database" step HERE` comment — **above**
   the `Prune working tree per .deployignore` step, which deletes `scripts/`
@@ -189,15 +214,64 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
       ./scripts/migrate.sh up --database "$db"
   ```
 
-  PR with the migration **and** the screen that reads the new table together; watch the run migrate test before shipping; prove it in test's `schema_migrations`.
+  PR with the migration **and** the screen that reads the new table together;
+  watch the run migrate test before shipping; prove it in test's
+  `schema_migrations`.
+
+  The screen is deliberately tiny — a table bound to the new table. In the
+  Designer: open `projects/packaging-site` → the `pages/packaging` view → drop a
+  **Table** component in, then bind `props.data` → **Query** → database
+  `TimescaleDB`, query
+  `SELECT line, started_at, ended_at, reason FROM downtime_log ORDER BY started_at DESC`.
+  No Designer? Paste this component into the view's `root.children` list in
+  `projects/packaging-site/com.inductiveautomation.perspective/views/pages/packaging/view.json`
+  — the JSON *is* the screen, which is the whole reason it deploys as a file:
+
+  ```json
+  {
+    "meta": { "name": "DowntimeTable" },
+    "position": { "grow": 1, "shrink": 1 },
+    "propConfig": {
+      "props.data": {
+        "binding": {
+          "config": {
+            "database": "TimescaleDB",
+            "fallbackDelay": 2.5,
+            "polling": { "enabled": false },
+            "queryString": "SELECT line, started_at, ended_at, reason FROM downtime_log ORDER BY started_at DESC",
+            "returnFormat": "dataset"
+          },
+          "type": "query"
+        }
+      }
+    },
+    "props": { "style": { "margin": "16px" } },
+    "type": "ia.display.table"
+  }
+  ```
+
+  Note *where* that query runs: on the gateway, against **that gateway's**
+  `TimescaleDB` connection — so the same screen reads `ignition_test` on test
+  and `ignition_production` on production, and it needs its table to already be
+  there. That is the whole argument for migrate-before-ship.
 - **Gate:** a green deploy run whose log shows migrate → ship → scan → verify, and test's ledger at version 2 (a later `v*` release migrates `ignition_production` the same way).
 
 ### Part 3 — deploy three third-party modules (±10 min)
 - Install the three spare `.modl` files by adding **minimal** `services/modules.json` entries, let the gateway derive the acceptance fields, commit them, ship them through the pipeline, and verify they come up **Running** with no hands on the gateway.
 
-  The spare modules are **Embr Periscope**, **Embr Charts** and the **TimescaleDB Historian**. Their `.modl` files already sit in `third-party-modules/`, and all three module ids are already listed in the compose `GATEWAY_MODULES_ENABLED`, `ACCEPT_MODULE_LICENSES`, and `ACCEPT_MODULE_CERTS` env vars — but they ship **without a `modules.json` entry**, so the gateway does not load them. Nothing runs until you add the entries.
+  The spare modules are **Embr Periscope**, **Embr Charts** and the **TimescaleDB Historian**. Their `.modl` files already sit in `third-party-modules/` — and that is *all* that ships: no `modules.json` entry, and their ids are absent from the compose module env vars. The gateway neither loads nor trusts them.
 
-  **Step 1 — add the lines you actually know.** You do *not* know the fingerprints or the license hashes, and you shouldn't guess. The module ids are hard to discover, so they are given here. Add only:
+  **Step 1 — look first.** Open `http://localhost:8088` → *Config → Modules* (the platform-modules page): none of the three is in the list. A `.modl` on disk does nothing on its own.
+
+  **Step 2 — accept them in the env vars.** In `docker-compose.yaml`, add the three module ids to **all three** lists in the shared env anchor: `GATEWAY_MODULES_ENABLED` (the gateway may load them), plus `ACCEPT_MODULE_LICENSES` and `ACCEPT_MODULE_CERTS` (headless license + certificate acceptance). The ids are hard to discover, so they are given:
+
+  ```
+  com.mussonindustrial.embr.periscope
+  com.mussonindustrial.embr.charts
+  com.mustry.historian.timescaledb
+  ```
+
+  **Step 3 — add the manifest lines you actually know.** You do *not* know the fingerprints or the license hashes, and you shouldn't guess. Add only:
 
   ```json
   "com.mussonindustrial.embr.periscope": {
@@ -214,16 +288,16 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
   }
   ```
 
-  **Step 2 — boot once and let the gateway fill in the rest.** Restart the local gateway (`docker restart lab06-gateway-local-development`, or re-run `scripts/setup.sh`). Because acceptance is already in the env vars, the gateway installs the modules headlessly and **rewrites `modules.json`**, appending to each entry the two fields it computed:
+  **Step 4 — boot once and let the gateway fill in the rest.** `docker compose up -d` — the env lists live in a shared YAML anchor, so this recreates **all three** gateways, and the local one is the one that matters here. On that boot it accepts the licenses from the env vars, installs the modules headlessly and **rewrites `modules.json`**, appending to each entry the two fields it computed:
 
   ```json
     "certFingerprint": "e5a3cf3f06627c175b68b0122ac8f2c3f9c992e2",
     "licenseAgreementHash": 101444854
   ```
 
-  `git diff services/modules.json` shows exactly what it added. **Commit those lines.** They are the whole point: with acceptance stored as data, a *fresh* gateway (an image-based deploy, a rebuilt container) installs the modules without a human ever clicking an install dialog — and without needing the env vars at all.
+  `git diff services/modules.json` shows exactly what it added. **Commit those lines** (together with your `docker-compose.yaml` edit). They are the whole point: with acceptance stored as data, a *fresh* gateway (an image-based deploy, a rebuilt container) installs the modules without a human ever clicking an install dialog. The negative test below is what shows you the other side of it: strip the derived lines and the boot stops dead at commissioning.
 
-  **Step 3 — verify they are actually Running:**
+  **Step 5 — verify they are actually Running:**
 
   ```bash
   # the gateway logged them starting up:
@@ -232,20 +306,62 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
 
   A `Starting up module` line = installed and Running. In the UI it is *Config → Modules*: all three listed, all Running.
 
-  **Step 4 — ship them.** PR → merge → deploy run. Because the module manifest changed, the deploy **restarts** the gateway: modules only load at boot, unlike projects and config, which reload hot.
+  **Step 6 — ship them.** PR → merge → deploy run. Because the module manifest changed, the deploy **restarts** the gateway: modules only load at boot, unlike projects and config, which reload hot.
 
-  **Negative test (what un-accepted looks like), on one module:** in a scratch checkout, delete its two derived lines **and** drop `com.mussonindustrial.embr.periscope` from `ACCEPT_MODULE_LICENSES` / `ACCEPT_MODULE_CERTS`, wipe the local volume, and boot. With the module enabled but unaccepted the gateway parks at the commissioning screen — `curl http://localhost:8088/StatusPing` returns `{"state":"RUNNING","details":"COMMISSIONING"}`. Put both back to recover.
+  **Negative test (what un-accepted looks like), on one module.** Do this on your
+  own local gateway, last — not in a second checkout (a second clone would fight
+  this one for ports 8088-8090 and, sharing the compose project name, for the
+  same containers and volumes). Delete Periscope's two derived lines **and** drop
+  `com.mussonindustrial.embr.periscope` from `ACCEPT_MODULE_LICENSES` /
+  `ACCEPT_MODULE_CERTS` — leaving it in `GATEWAY_MODULES_ENABLED` — then wipe the
+  local gateway's volume and boot it:
+
+  ```bash
+  docker compose rm -sf gateway-local-development
+  docker volume rm "$(docker compose config --format json \
+    | python3 -c 'import json,sys; print(json.load(sys.stdin)["name"])')_gateway-local-data"
+  docker compose up -d gateway-local-development
+  curl http://localhost:8088/StatusPing
+  # → {"state":"RUNNING","details":"COMMISSIONING"}
+  ```
+
+  A module that is enabled but unaccepted parks the gateway at the commissioning
+  screen: it will not finish booting until a human accepts the licence, which on
+  a server nobody is sitting at means the gateway is simply down. That is why
+  acceptance has to be data in the repo.
+
+  **Recovering costs three commands, and it is worth understanding why.** That
+  fresh volume re-ran commissioning, and commissioning found the committed
+  `security-properties` policy but no internal identity on disk. So it played
+  safe: it created a `temp` user source + identity provider and rewrote
+  `security-properties` to point at them, dropping the `APIToken` read/write
+  permissions your scan API needs. Put the acceptance back, then undo that:
+
+  ```bash
+  git checkout -- services/config/resources/core/ignition/security-properties/
+  rm -rf services/config/resources/core/ignition/{user-source,identity-provider}/temp
+  docker restart lab06-gateway-local-development
+  ./scripts/scan.sh    # HTTP 200 again = the API token permissions are back
+  ```
+
+  Note what that means for the real world: wiping a gateway's data volume while
+  its config tree survives is exactly how you lock yourself out of a gateway.
+  `scripts/setup.sh` choreographs the first boot to avoid it; a bare
+  `docker compose up` on a wiped volume does not.
 - **Gate:** all three modules Running on test, hands-free — *Config → Modules* shows all three Running.
 
 ### Stretch (optional)
-- **S1.** The internal secret provider, and where it breaks: create an **internal secret provider** on the local gateway, store `REPORTING_PASSWORD` in it (the gateway encrypts it and keeps the ciphertext in its own config) and point `TimescaleDB_Reports` at it. Locally it stays Valid; ship it and develop faults — the ciphertext only decrypts on the gateway that created it. Explore `ignition-secrets-tool.sh` (shared root key + KEK under `data/config/ignition/keys/`) as the escape hatch, then revert to the referenced secret. What is "the secret" now, and who owns it?
+- **S1.** The internal secret provider, and where it breaks: create an **internal secret provider** on the local gateway, store `REPORTING_PASSWORD` in it (the gateway encrypts it and keeps the ciphertext in its own config) and point `TimescaleDB_Reports` at it. Locally it stays Valid; ship it and test faults — the ciphertext only decrypts on the gateway that created it. Explore `ignition-secrets-tool.sh` (shared root key + KEK under `data/config/ignition/keys/`) as the escape hatch, then revert to the referenced secret. What is "the secret" now, and who owns it?
 - **S2.** Expand-contract rename: `0003` add + backfill, screen switch, `0004` drop.
 - **S3.** Add a `gitleaks` job to `ci.yml` (`fetch-depth: 0` — the scanner must see history); test with a fake-key PR.
 - **S4.** Ship a **library JAR** through the pipeline and use it on a screen.
   The teaching's second kind of JAR, done for real: `jar-files/jar/` carries
-  `commons-lang3-3.19.0.jar` (pinned, checksummed in its README), and your job
+  `commons-csv-1.14.1.jar` (pinned, checksummed in its README), and your job
   is to get it onto the gateway classpath (`lib/core/gateway/`) via the
-  pipeline, then prove it works from a Perspective screen.
+  pipeline, then prove it works from a Perspective screen. (commons-csv on
+  purpose: the Ignition image already bundles commons-lang3, commons-text,
+  guava and friends under `lib/core/common/`, so importing those would
+  succeed without you shipping anything — see `jar-files/jar/README.md`.)
 
   1. **Prove the gap first.** In any lab project, add a view with a **Text
      Field** and a **Label** next to it. Bind the label's `props.text` to the
@@ -254,27 +370,35 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
 
      ```python
      def transform(self, value, quality, timestamp):
-         from org.apache.commons.lang3 import StringUtils
-         return StringUtils.reverse(value or "")
+         from org.apache.commons.csv import CSVFormat
+         from java.io import StringReader
+         records = CSVFormat.DEFAULT.parse(StringReader(value or "")).getRecords()
+         return " | ".join(records[0]) if records else ""
      ```
 
-     The binding errors — the class isn't on the gateway classpath yet.
-     (Perspective bindings run **on the gateway**, so it's the gateway's
-     classpath that counts, not the Designer's.)
-  2. **Fix local by hand, once** — the same move the deploy step will automate:
+     The binding errors — `No module named csv`: the class isn't on the
+     gateway classpath yet. (Perspective bindings run **on the gateway**, so
+     it's the gateway's classpath that counts, not the Designer's.)
+  2. **Fix local with a file volume.** The local gateway gets the JAR the way
+     it gets everything else: a bind mount — a single-file one, exactly like
+     the `services/modules.json` line already there. Add this to the
+     `gateway-local-development` service's `volumes:` list in
+     `docker-compose.yaml`:
 
-     ```bash
-     docker cp jar-files/jar/commons-lang3-3.19.0.jar \
-       lab06-gateway-local-development:/usr/local/bin/ignition/lib/core/gateway/
-     docker restart lab06-gateway-local-development
+     ```yaml
+     - ./jar-files/jar/commons-csv-1.14.1.jar:/usr/local/bin/ignition/lib/core/gateway/commons-csv-1.14.1.jar
      ```
 
-     Library JARs load at **boot**, like modules — hence the restart. After
-     the gateway is back, type in the text field: the label shows the word
-     reversed (`Ignition` → `noitingI`).
-  3. **Make it deployable state.** Add a **Ship library JARs** step to
-     `deploy.yml`, right after the module-manifest step (it is the same
-     pattern: copy, compare, restart only when changed):
+     Then `docker compose up -d` — the config change recreates the gateway.
+     Library JARs load at **boot**, like modules. After the gateway is back,
+     type a CSV line in the text field: the label shows the parsed fields
+     (`pump,3,ok` → `pump | 3 | ok`).
+  3. **Make it deployable state.** Test and production have no working tree
+     to mount from — the pipeline ships the bytes. The step below is ready
+     to copy: paste it into `deploy.yml` at the marked
+     `# Stretch S4: paste the ready-made "Ship library JARs" step HERE`
+     comment, right after the module-manifest step (it is the same pattern:
+     copy, compare, restart only when changed):
 
      ```yaml
      - name: Ship library JARs (restart if changed)
@@ -310,16 +434,16 @@ as `ignition`, `TimescaleDB_Reports` as the read-only `reporting` user.
      Also add `"jar-files/**"` to the `push.paths` list at the top of
      `deploy.yml` — without it, a PR that only changes a JAR never triggers a
      deploy.
-  4. **Ship it.** PR with the view **and** the workflow change → merge →
-     watch the run ship the JAR and restart test → open the view on test
-     (`http://localhost:8089`) and see the reverse work on a gateway you
-     never touched. Note what step 2 did *not* give you: a hand-copied JAR
-     dies with the container (`docker cp` survives a restart, not a
-     recreate) — the pipeline re-ships it on every change, which is the
-     point.
-  - **Gate:** typing in the text field shows the reversed word on **test**,
-    the JAR got there through the pipeline, and the run log shows a restart
-    on the JAR deploy but none on your next config-only deploy.
+  4. **Ship it.** PR with the view, the compose volume **and** the workflow
+     change → merge → watch the run ship the JAR and restart test → open the
+     view on test (`http://localhost:8089`) and see the CSV parse on a
+     gateway you never touched. Note what step 2 did *not* give you: the
+     bind mount only exists on a machine with your working tree — on a real
+     server there is none, so the pipeline re-ships the JAR on every change,
+     which is the point.
+  - **Gate:** typing a CSV line in the text field shows the parsed fields on
+    **test**, the JAR got there through the pipeline, and the run log shows a
+    restart on the JAR deploy but none on your next config-only deploy.
 
 ## Debrief
 

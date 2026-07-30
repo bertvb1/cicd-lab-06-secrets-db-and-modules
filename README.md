@@ -6,9 +6,12 @@ Day 4 (morning) of the [CI/CD for Ignition Masterclass](https://github.com/mustr
 
 This lab reuses Lab 04's file-based deploy stack (three gateways, bundled self-hosted runner, `docker cp` + hot scan). What's new is everything the config files *can't* say: password values, schema state, module binaries.
 
+
+> **How resource.json stays clean:** Ignition restamps these manifests constantly. [`docs/resource-json-hygiene.html`](./docs/resource-json-hygiene.html) explains what the junk is, the two tools that deal with it, and why an empty `git diff` does not mean a clean file.
+
 ## Prerequisites
 
-- A fork of this repo, **with Actions enabled** — the warm-up, Parts 1C–1D and 2B are pipeline work (same setup as Lab 04)
+- A fork of this repo, **with Actions enabled** — the warm-up, Parts 1C–1D and 2B are pipeline work (same setup as Lab 04). Enabling is one click a fresh fork *requires*: *Actions* tab → **"I understand my workflows, go ahead and enable them"**. Skip it and every automatic trigger stays off — a PR, a merge or a `v*` tag produces no workflow run and no error message. There is no CLI or API for that button.
 - A GitHub Personal Access Token with `repo` scope — the bundled runner uses it to auto-register against your fork. **Reuse the one you made in Lab 04** (or create one at [github.com/settings/tokens](https://github.com/settings/tokens) → classic → tick `repo`) and put it in `.env` as `RUNNER_GITHUB_PAT`. It never leaves `.env`.
 - The [GitHub CLI](https://cli.github.com/) (`gh`), authenticated (`gh auth status`) — used to fork and clone the repo
 - **≥ 8 GB free RAM for Docker** — three Ignition gateways each cap at 1 GB, plus TimescaleDB, the runner, and the usual Docker Desktop overhead
@@ -53,8 +56,8 @@ The lab is a warm-up plus three parts — [`exercises/lab.md`](./exercises/lab.m
 
 | Part | Topic | Gate |
 |---|---|---|
-| Warm-up | Deploy to develop and production; find both db-connections **Faulted** while the pipeline is green | the diagnosis question |
-| 1 (±30 min) | Passwords → secret files → file-type secret provider → **referenced secrets**; fix develop through a full PR → pipeline deploy | both connections Valid on develop, fixed by the pipeline |
+| Warm-up | Deploy to test and production; find both db-connections **Faulted** while the pipeline is green | the diagnosis question |
+| 1 (±30 min) | Passwords → secret files → file-type secret provider → **referenced secrets**; fix test through a full PR → pipeline deploy | both connections Valid on test, fixed by the pipeline |
 | 2 (±20 min) | A schema change as a golang-migrate `0002` up/down pair; `deploy.yml` migrates test **before** it ships | green run: migrate → ship → scan → verify |
 | 3 (±10 min) | A spare `.modl` deployed with headless license/cert acceptance in `services/modules.json` | module **Running** on test, hands-free |
 
@@ -95,7 +98,7 @@ cicd-lab-06-secrets-db-and-modules/
 │   └── modules.json                    ← module enablement manifest (Part 3 adds the spare)
 ├── third-party-modules/                ← bundled .modl binaries — incl. the spare one Part 3 deploys
 └── jar-files/jar/                      ← library JARs for the gateway classpath (Stretch S4 ships
-                                           commons-lang3 through the pipeline)
+                                           commons-csv through the pipeline)
 ```
 
 ## The two database connections (the warm-up's broken state)
@@ -105,9 +108,9 @@ The local gateway has two connections to the shared TimescaleDB, and they are **
 | Connection | Login | Target | Per-env override? |
 |---|---|---|---|
 | `TimescaleDB` | `ignition` (r/w) | `ignition_<env>` | `local-development`/`test`/`production` overrides exist — the pattern to copy |
-| `TimescaleDB_Reports` | `reporting` (read-only) | `ignition_local_development` | **core only** — develop inherits the wrong database (Part 1C fixes this) |
+| `TimescaleDB_Reports` | `reporting` (read-only) | `ignition_local_development` | **core only** — test inherits the wrong database (Part 1C fixes this) |
 
-Both passwords are **embedded** secrets in the committed config, encrypted under **custom secrets-management keys** that are committed for the local gateway (`services/config/ignition/keys/` + `IGNITION_ROOT_KEY_PASSWORD` in the compose file) and deliberately excluded from the deploy payload (`.deployignore`). So your local gateway decrypts them, and develop/production fault with `Unable to decrypt ciphertext` — a green pipeline and broken connections, which is the warm-up's whole point: a config-only deploy cannot carry password values (they must never be in Git) nor the per-environment database target. Part 1 replaces the whole construction with **referenced** secrets from a file-type provider, and the deploy workflow materializes the files from GitHub environment secrets. (Committing key files is a real-world anti-pattern — that's the seed being deliberately naive; see `docs/secrets-management.md`.)
+Both passwords are **embedded** secrets in the committed config, encrypted under **custom secrets-management keys** that are committed for the local gateway (`services/config/ignition/keys/` + `IGNITION_ROOT_KEY_PASSWORD` in the compose file) and deliberately excluded from the deploy payload (`.deployignore`). So your local gateway decrypts them, and test/production fault with `Unable to decrypt ciphertext` — a green pipeline and broken connections, which is the warm-up's whole point: a config-only deploy cannot carry password values (they must never be in Git) nor the per-environment database target. Part 1 replaces the whole construction with **referenced** secrets from a file-type provider, and the deploy workflow materializes the files from GitHub environment secrets. (Committing key files is a real-world anti-pattern — that's the seed being deliberately naive; see `docs/secrets-management.md`.)
 
 ## The CI/CD workflows
 

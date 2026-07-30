@@ -82,16 +82,49 @@ install_git_hooks() {
     local source_dir="$PROJECT_ROOT/scripts/git-hooks"
     [ -d "$source_dir" ] || return 0
     mkdir -p "$repo_hooks_dir"
-    for hook in post-merge post-checkout post-rewrite; do
-        local target="$repo_hooks_dir/$hook"
-        ln -sf "$source_dir/$hook" "$target"
+    # Clones set up before post-merge/post-rewrite were dropped still have
+    # symlinks to the deleted files; git errors on every merge/rebase until
+    # they are removed.
+    for stale in post-merge post-rewrite; do
+        local link="$repo_hooks_dir/$stale"
+        if [ -L "$link" ] && [ ! -e "$link" ]; then
+            rm -f "$link"
+        fi
     done
+    # post-checkout only. Git keeps the skip-worktree bit across merge, rebase,
+    # amend, reset --hard and stash, so hooks on those events had nothing to do.
+    # The bit is only lost when the file leaves the index and comes back, which
+    # is a checkout.
+    ln -sf "$source_dir/post-checkout" "$repo_hooks_dir/post-checkout"
     if [ -x "$source_dir/skip-worktree-ignition-resources" ]; then
         "$source_dir/skip-worktree-ignition-resources" || true
     fi
 }
 
 install_git_hooks
+
+# ---- pre-commit framework ---------------------------------------------------
+# Installs .git/hooks/pre-commit from .pre-commit-config.yaml. That config holds
+# the linters CI runs AND the hook that reverts junk-only resource.json
+# rewrites, so without this the churn cleaner never runs on its own and Ignition
+# metadata can still reach a commit.
+install_pre_commit_hooks() {
+    if ! command -v pre-commit >/dev/null 2>&1; then
+        echo -e "${YELLOW}pre-commit is not installed, so resource.json churn will NOT be${NC}"
+        echo -e "${YELLOW}reverted automatically and the linters CI runs stay local-only:${NC}"
+        echo "  pip install pre-commit && pre-commit install"
+        echo ""
+        return 0
+    fi
+    if pre-commit install >/dev/null 2>&1; then
+        echo -e "${GREEN}pre-commit hooks installed (linters + resource.json churn cleaner).${NC}"
+    else
+        echo -e "${YELLOW}pre-commit is installed but 'pre-commit install' failed; run it by hand.${NC}"
+    fi
+    echo ""
+}
+
+install_pre_commit_hooks
 
 # ---- Git diff driver --------------------------------------------------------
 # .gitattributes routes resource.json through this textconv normalizer so
@@ -230,33 +263,101 @@ reset_desynced_gateways() {
 
 reset_desynced_gateways
 
-# ---- Local first-boot: stash security-properties during commissioning -----
-# On the very first boot of the LOCAL gateway, auto-commissioning has to
-# guarantee an admin login exists. If it finds a security-properties file but
+# ---- Stash security-properties whenever the local gateway commissions -----
+# Any boot where the LOCAL gateway commissions — its first, or any boot after
+# its data volume went away — auto-commissioning has to guarantee an admin
+# login exists. If it finds a security-properties file but
 # no matching user source (the repo tracks the policy file; the per-gateway
 # user-source/default is gitignored), it plays safe and creates a temp_N
 # identity, then rewrites security-properties to point at it — permanent git
 # noise AND an auth profile no other gateway has. If it finds NO
 # security-properties, it creates the `default` user source + identity
 # provider, exactly like test/production do. So: move the committed file aside for
-# the first boot, then put it back (it names systemAuthProfile=default, which
+# that boot, then put it back (it names systemAuthProfile=default, which
 # now exists, and carries the APIToken scan permissions) and restart local.
 SECPROPS_DIR="$PROJECT_ROOT/services/config/resources/core/ignition/security-properties"
 SECPROPS_STASH=""
+IDENTITY_DIR="$PROJECT_ROOT/services/config/resources/core/ignition"
+
+# Will the LOCAL gateway commission on THIS boot? The gateway answers that from
+# its DATA VOLUME (the internal config db), never from the config tree — so the
+# config tree is the wrong thing to ask. Asking it ("does user-source/default
+# exist?") is what used to make this decide "already commissioned" while the
+# gateway commissioned anyway: any volume that disappears without the gitignored
+# identity dirs going with it (`docker volume rm`, `compose down -v`, a Docker
+# Desktop cleanup, Part 3's negative test) leaves the two disagreeing, and the
+# result is a `temp` identity plus a rewritten security-properties. So ask the
+# volume. An answer we cannot get counts as "already commissioned", which
+# changes nothing — never delete a live gateway's identity on a guess.
+local_will_commission() {
+    local project vol probe
+    project="$(compose_project_name)"
+    [ -n "$project" ] || project="$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')"
+    vol="${project}_gateway-local-data"
+    docker volume inspect "$vol" >/dev/null 2>&1 || return 0   # no volume → it commissions
+    probe="$(docker run --rm -v "$vol:/d" alpine:3 sh -c \
+        '[ -d /d/db ] && [ -n "$(ls -A /d/db 2>/dev/null)" ] && echo has-internal-db; echo probe-ran' \
+        2>/dev/null || true)"
+    case "$probe" in
+        *has-internal-db*) return 1 ;;   # internal db present → already commissioned
+        *probe-ran*)       return 0 ;;   # volume there but empty → it commissions
+        *)                 return 1 ;;   # probe could not run → change nothing
+    esac
+}
+
 stash_secprops_for_commissioning() {
-    local usersource_dir="$PROJECT_ROOT/services/config/resources/core/ignition/user-source/default"
     # If a previous interrupted run left the file stashed away, recover the
     # committed version from git before deciding anything.
     if [ ! -d "$SECPROPS_DIR" ]; then
         git -C "$PROJECT_ROOT" checkout -- "$SECPROPS_DIR" 2>/dev/null || true
     fi
-    if [ -d "$usersource_dir" ] || [ ! -d "$SECPROPS_DIR" ]; then
-        return 0   # not a first boot (or nothing to stash)
-    fi
+    [ -d "$SECPROPS_DIR" ] || return 0    # nothing to stash
+    local_will_commission || return 0     # gateway keeps the identity it has
+    # Commissioning is about to run, so any identity still on disk belongs to
+    # the data volume that went away. Leaving it there is exactly what makes
+    # commissioning invent a `temp` profile instead of `default` — the same
+    # reason teardown.sh --volumes removes it.
+    rm -rf "$IDENTITY_DIR/user-source/default" \
+           "$IDENTITY_DIR/user-source/opcua-module" \
+           "$IDENTITY_DIR/identity-provider/default"
+    rm -rf "$IDENTITY_DIR/user-source/"temp* "$IDENTITY_DIR/identity-provider/"temp*
     SECPROPS_STASH="$(mktemp -d)"
     mv "$SECPROPS_DIR" "$SECPROPS_STASH/security-properties"
-    echo -e "${YELLOW}First boot of the local gateway: letting commissioning create the${NC}"
+    echo -e "${YELLOW}The local gateway commissions on this boot: letting it create the${NC}"
     echo -e "${YELLOW}default identity before restoring the committed security-properties.${NC}"
+}
+
+# Self-heal an identity a PREVIOUS boot got wrong. If commissioning ever ran
+# with stale identity files in place, the gateway created a `temp` user source
+# + identity provider and rewrote the TRACKED security-properties to point at
+# it, dropping the APIToken permissions the scan API needs on the way. Nothing
+# fails loudly when that happens — the permissions get grafted back and the run
+# goes green — so it survives until someone commits the rewritten policy or
+# ships it to a gateway that has no `temp` profile (a lockout). Undo it.
+heal_temp_identity() {
+    local sp="$SECPROPS_DIR/config.json" profile
+    [ -f "$sp" ] || return 0
+    profile="$(python3 -c 'import json,sys
+try: print(json.load(open(sys.argv[1])).get("systemAuthProfile",""))
+except Exception: pass' "$sp" 2>/dev/null || true)"
+    case "$profile" in temp*) ;; *) return 0 ;; esac
+    echo ""
+    echo -e "${YELLOW}The local gateway is authenticating against a '$profile' identity.${NC}"
+    echo "  Commissioning wrote it because identity files outlived their data"
+    echo "  volume. Restoring the committed security-properties and dropping it."
+    if ! git -C "$PROJECT_ROOT" checkout -- "$SECPROPS_DIR" 2>/dev/null; then
+        echo -e "${RED}  Could not restore $SECPROPS_DIR from git — fix it by hand.${NC}" >&2
+        return 0
+    fi
+    rm -rf "$IDENTITY_DIR/user-source/"temp* "$IDENTITY_DIR/identity-provider/"temp*
+    if [ ! -d "$IDENTITY_DIR/user-source/default" ]; then
+        echo -e "${RED}  No 'default' user source on disk to fall back to.${NC}" >&2
+        echo "  Run: scripts/teardown.sh --volumes && scripts/setup.sh" >&2
+        return 0
+    fi
+    docker restart "$(gateway_container local)" >/dev/null
+    wait_for_gateway local
+    echo -e "${GREEN}  Identity repaired — the gateway is back on 'default'.${NC}"
 }
 
 restore_secprops_after_commissioning() {
@@ -319,6 +420,9 @@ for gw in "${LAB_GATEWAYS[@]}"; do
 done
 
 restore_secprops_after_commissioning
+# Runs unconditionally: it repairs a temp identity this run never created, left
+# by an earlier boot (or by an older setup.sh that skipped the stash).
+heal_temp_identity
 
 # ---- API-permission repair (first boot only) ------------------------------
 # On the FIRST boot of a fresh gateway container, Ignition's auto-commissioning

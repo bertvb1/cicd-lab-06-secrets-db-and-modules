@@ -201,6 +201,12 @@ jobs:
           echo "gateway did not come back after module restart" >&2
           exit 1
 
+      # Stretch S4: paste the ready-made "Ship library JARs" step HERE — it
+      # is in exercises/lab.md, ready to copy. Same pattern as the module
+      # step above: copy, compare, restart only when changed. Also add
+      # "jar-files/**" to the push.paths list at the top of this file, or a
+      # JAR-only change never triggers a deploy.
+
       # Part 2B: add your "Migrate database" step HERE — after the secret
       # files are on the gateway (the migration needs the DB password) and
       # BEFORE "Ship projects and config" below (old screens tolerate a new

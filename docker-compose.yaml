@@ -24,11 +24,22 @@
 #
 # NOTE (Part 1A of the lab): the database passwords below enter the containers
 # as ENVIRONMENT VARIABLES — anyone who can `docker inspect` reads them in
-# plaintext. Part 1 of the lab moves them to file-based secrets (a top-level
-# `secrets:` block + POSTGRES_PASSWORD_FILE + files under ./secrets/). That
+# plaintext. Part 1 of the lab moves them to file-based secrets: a top-level
+# `secrets:` block backed by ./secrets/*.txt, POSTGRES_PASSWORD_FILE +
+# REPORTING_PASSWORD_FILE on the DB service, and BOTH secrets attached to BOTH
+# services (the DB service also because db-init/ reads the reporting file on a
+# fresh volume; the gateway because its secret provider resolves them). That
 # edit is the exercise, so this file ships WITHOUT it.
 
 ---
+# `name:` pins the Compose project so this stack always resolves to THESE
+# containers and volumes, whichever directory you run compose from. Without it
+# the project name comes from the folder name, so a second clone of this lab
+# (a fork next to the course repo, a scratch checkout) silently adopts the other
+# one's containers and its timescaledb volume — and db-init/, which only runs on
+# a first volume init, never runs for the new clone.
+name: cicd-lab06
+
 # YAML anchors for the bits that don't differ across the three gateways. Each
 # service merges these in and overrides the parts that do (ports, admin creds,
 # the gateway name passed to the wrapper, volumes).
@@ -51,33 +62,28 @@ x-ignition-env: &ignition-env
     com.inductiveautomation.opcua.drivers.tcpudp,
     com.inductiveautomation.webdev,
     com.inductiveautomation.jdbc.postgresql,
-    com.mussonindustrial.embr.charts,
-    com.mussonindustrial.embr.periscope,
-    com.mustry.historian.timescaledb,
-    com.cirruslink.mqtt.engine.gateway
+    com.cirruslink.mqtt.engine.gateway,
+    dev.bwdesigngroup.flint.FlintDesignerBridge
   # Embr-Periscope, Embr-Charts and the TimescaleDB Historian are the three
-  # spare modules Part 3 installs. All three are pre-accepted in the
-  # ACCEPT_MODULE_* lists below (license + cert) AND listed in
-  # GATEWAY_MODULES_ENABLED — but they ship WITHOUT a services/modules.json
-  # entry, so the .modl files sitting in third-party-modules/ are not loaded
-  # on a fresh boot (no manifest entry => not installed). Part 3 adds the
-  # minimal entry per module (filename + onStartup); because acceptance is
-  # already in these env vars, the gateway installs them headlessly on the
-  # next boot and WRITES the derived certFingerprint + licenseAgreementHash
-  # back into modules.json — which the student then commits so image-based/
-  # fresh gateways accept them from config alone. That derivation is the
-  # whole point of Part 3. (MQTT Engine stays pre-wired: it is a 55 MB
-  # module and slow to boot, so it is not part of the exercise.)
+  # spare modules Part 3 installs. Their .modl files sit in
+  # third-party-modules/, but they ship with NO services/modules.json entry
+  # AND deliberately absent from the three module env vars here — so a fresh
+  # boot neither loads nor trusts them. Part 3 is the student adding both
+  # halves: the three module ids to GATEWAY_MODULES_ENABLED +
+  # ACCEPT_MODULE_LICENSES + ACCEPT_MODULE_CERTS, and the minimal manifest
+  # entry per module (filename + onStartup). On the next boot the gateway
+  # installs them headlessly and WRITES the derived certFingerprint +
+  # licenseAgreementHash back into modules.json — which the student commits
+  # so image-based/fresh gateways accept them from config alone. That
+  # derivation is the whole point of Part 3. (MQTT Engine stays pre-wired:
+  # it is a 55 MB module and slow to boot, so it is not part of the
+  # exercise.)
   ACCEPT_MODULE_LICENSES: >-
-    com.mussonindustrial.embr.charts,
-    com.mussonindustrial.embr.periscope,
-    com.mustry.historian.timescaledb,
-    com.cirruslink.mqtt.engine.gateway
+    com.cirruslink.mqtt.engine.gateway,
+    dev.bwdesigngroup.flint.FlintDesignerBridge
   ACCEPT_MODULE_CERTS: >-
-    com.mussonindustrial.embr.charts,
-    com.mussonindustrial.embr.periscope,
-    com.mustry.historian.timescaledb,
-    com.cirruslink.mqtt.engine.gateway
+    com.cirruslink.mqtt.engine.gateway,
+    dev.bwdesigngroup.flint.FlintDesignerBridge
   GATEWAY_RESTORE_DISABLED: "true"
   GATEWAY_NETWORK_ENABLED: "true"
   TZ: "Europe/Brussels"
@@ -119,8 +125,7 @@ secrets:
 services:
   # --- local gateway: edits on the host show up here immediately --------------
   gateway-local-development:
-    secrets: [postgres_password, reporting_password]
-    image: inductiveautomation/ignition:8.3.6
+    image: inductiveautomation/ignition:8.3.8
     container_name: lab06-gateway-local-development
     hostname: lab06-gateway-local-development
     # Keep the image's own identity (uid 2003, gid 0): its data/ tree is
@@ -175,7 +180,7 @@ services:
 
   # --- test gateway: populated by deploy.yml (push to main) -------------------
   gateway-test:
-    image: inductiveautomation/ignition:8.3.6
+    image: inductiveautomation/ignition:8.3.8
     container_name: lab06-gateway-test
     hostname: lab06-gateway-test
     # Keep the image's own identity (uid 2003, gid 0): its data/ tree is
@@ -231,7 +236,7 @@ services:
 
   # --- production gateway: populated by deploy.yml (dispatch, target=production) ------------------
   gateway-production:
-    image: inductiveautomation/ignition:8.3.6
+    image: inductiveautomation/ignition:8.3.8
     container_name: lab06-gateway-production
     hostname: lab06-gateway-production
     # Keep the image's own identity (uid 2003, gid 0): its data/ tree is

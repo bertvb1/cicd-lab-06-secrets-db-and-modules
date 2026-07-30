@@ -93,7 +93,11 @@ docker start -a "$cid" || rc=$?
 
 if [ "$rc" -ne 0 ]; then
   echo -e "${RED}migrate exited with status $rc${NC}" >&2
-  echo "  If the ledger is 'dirty', fix the failed migration and use:" >&2
+  # golang-migrate exits 1 for "nothing applied yet" too, which is a normal
+  # state on a fresh stack — don't send people hunting for a dirty ledger.
+  echo "  'error: no migration' just means nothing is applied on $DATABASE yet:" >&2
+  echo "    scripts/migrate.sh up --database $DATABASE" >&2
+  echo "  If the ledger really is 'dirty', fix the failed migration and use:" >&2
   echo "    scripts/migrate.sh force <version> --database $DATABASE" >&2
 fi
 exit "$rc"

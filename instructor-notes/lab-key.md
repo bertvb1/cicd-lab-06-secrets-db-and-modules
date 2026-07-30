@@ -3,11 +3,11 @@
 Two sections: what MUST be verified/re-seeded on a live stack before the
 course runs, and the answer key for the parts.
 
-## A. Seeding mechanics (verified live on 8.3.6) & what's left to check
+## A. Seeding mechanics (verified live on 8.3.8) & what's left to check
 
 ### A1. How the warm-up's broken state works — VERIFIED
 
-Empirical findings from a live run (2026-07-13, Ignition 8.3.6):
+Empirical findings from a live run (2026-07-13, Ignition 8.3.6; JAR bundling re-verified identical on 8.3.8 on 2026-07-24):
 
 - **The default embedded-secrets key is identical on every Ignition
   installation.** A ciphertext created on one default-key gateway decrypts on
@@ -68,13 +68,43 @@ All four flows ran green through the actual GitHub Actions pipeline:
 - **ci.yml**: all three jobs (Lint incl. ign-lint, Validate, Secret scan)
   green on PR #2.
 
-**OPEN (added 2026-07-20): the tag release flow is NOT yet E2E-verified.**
-1D's production promotion changed from a manual dispatch to the Lab 04
-routing: a `v*` tag fires the new thin `release.yml`, which calls `deploy.yml`
-(workflow_call, `target: production`, `secrets: inherit`). actionlint is
-green; before the course, push a `v*` tag on the upstream repo and confirm the
-called run picks up the `lab-gateway-production` environment secrets and goes
-green end to end.
+**Re-run on a real personal FORK, whole lab end to end (2026-07-30).** Nothing
+left open: warm-up (dispatch to both targets, both Faulted), 1A–1D, 2A–2B, 3
+and a `v1.1.0` tag all green, and verified from the outside rather than from the
+run log — `pg_stat_activity` shows the test gateway connected to
+`ignition_test` as **both** `ignition` and `reporting` and production likewise
+to `ignition_production` (so both connections Valid, `TimescaleDB_Reports` on
+its own database), `schema_migrations` at version 2 on test *and* production
+applied by the runs, three modules Running on local and test. The
+tag → `release.yml` → `deploy.yml` (`workflow_call`, `target: production`) path
+is confirmed: it also migrates `ignition_production` and restarts for the module
+manifest, i.e. the steps students add in 1C/2B do reach production unchanged.
+
+Fork-specific gotchas that cost time and are worth saying out loud on the day:
+
+- **A fresh fork blocks every automatic trigger** until someone clicks
+  *Actions → "I understand my workflows, go ahead and enable them"*. Symptom:
+  PR/merge/tag produce **no run and no error**. `repos/…/actions/permissions`
+  already reports `enabled:true`, per-workflow `/enable` calls change nothing —
+  there is no API for that button. `Run workflow` (workflow_dispatch) is the
+  only thing that works before the click, which is why the warm-up can look
+  fine while 1D silently does nothing.
+- A fork inherits `default_workflow_permissions: read`. Harmless here (this
+  lab's workflows only need `contents: read`), but it is what breaks Lab 05's
+  GHCR stretch: a fork cannot push packages with `GITHUB_TOKEN` at all
+  (`denied: permission_denied: write_package`, even with `Packages: write` in
+  the job's token).
+- `gh auth token` has no `delete_repo` scope, so cleaning up student forks is a
+  web-UI job (or `gh auth refresh -h github.com -s delete_repo` first).
+
+**CLOSED 2026-07-30: the tag release flow is E2E-verified.** 1D's production
+promotion uses the Lab 04 routing — a `v*` tag fires the thin `release.yml`,
+which calls `deploy.yml` (workflow_call, `target: production`,
+`secrets: inherit`). Confirmed on a fork: the called run resolves the
+`lab-gateway-production` environment (its `IGNITION_API_KEY`,
+`POSTGRES_PASSWORD`, `REPORTING_PASSWORD`), materializes the secret files,
+migrates `ignition_production` and ships — green in ~15 s when production has
+been deployed to before (no first-deploy restart).
 
 The runnable answer key lives on the **`rehearsal/lab-solutions`** branch
 (PR #2, draft, never to be merged): the Materialize + Migrate steps at their
@@ -82,11 +112,45 @@ insertion points, the `TimescaleDB_Reports` test override, the `0002` pair,
 and the enabled Periscope entry. To re-verify any flow, dispatch `deploy.yml`
 from that branch with `target=test`.
 
+### A5. The temp identity — closed for good (2026-07-30)
+
+The stash-during-commissioning guard (A1/A2) only ever asked the CONFIG TREE
+"is this a first boot?" (`does user-source/default exist?`), while the gateway
+answers it from its DATA VOLUME. Lose the volume without the gitignored
+identity dirs going with it — `docker volume rm`, `compose down -v`, a Docker
+Desktop cleanup, Part 3's negative test — and the two disagree: setup.sh
+skipped the stash and the gateway commissioned anyway, inventing a `temp`
+identity and rewriting the TRACKED `security-properties` to point at it (the
+APIToken permissions get stripped on the way). Reproduced on the pristine repo
+with plain `scripts/setup.sh`: exit 0, "Setup complete!", scan HTTP 200 — and a
+tree holding `systemAuthProfile: temp`. Silent, because the API-permission
+graft repairs the symptom.
+
+Why it matters: `git add -A` then commits that policy, and deploy.yml ships it
+to gateways whose wipe step deletes any `temp` dirs — a policy naming a profile
+that does not exist, which is the course-day lockout shape.
+
+Now (labs 04, 05 and 06 all carry this):
+- `local_will_commission()` asks the data volume (does it hold an internal db?),
+  and an answer it cannot get counts as "commissioned" so a live gateway's
+  identity is never deleted on a guess.
+- When it will commission, the stale identity dirs are removed first, so
+  commissioning writes a clean `default`.
+- `heal_temp_identity()` runs on every setup: a `temp*` profile is restored
+  from git, the temp dirs deleted, the gateway restarted.
+- `teardown.sh --volumes` removes `temp*` too; `.gitignore` covers `temp*`.
+- `validate.sh` + `ci.yml` fail if `security-properties` names a `temp*`
+  profile — the commit path, caught before a deploy.
+
+Verified per lab, four cases each: fresh setup, break-with-bare-compose-up →
+heal, the original volume-only-wipe case, and a headless admin login after each
+(`"success":true`).
+
 ### A3. Module-manifest behaviour (all verified live — read before editing
 ### Part 3)
 
 **Part 3 design (env-var derivation) — reverified live 2026-07-14 on a fresh
-volume, local gateway, Ignition 8.3.6.** The whole point of Part 3 is that the
+volume, local gateway, Ignition 8.3.8.** The whole point of Part 3 is that the
 student never types the fingerprint/hash: the gateway computes them.
 
 - **A `.modl` in the external-modules folder is NOT auto-installed on its own.**
@@ -103,12 +167,18 @@ student never types the fingerprint/hash: the gateway computes them.
   the file gains the two computed fields. Verified values: charts
   `e5a3cf3f06627c175b68b0122ac8f2c3f9c992e2` / `3266212556`; periscope same
   cert fingerprint / `101444854`. This is the derivation students commit.
-- **Seed state for the spare (Periscope): in all three env vars, but ABSENT
-  from `services/modules.json`.** So on a fresh boot the gateway comes up clean
-  and RUNNING with periscope *not* loaded (`/res/embr-periscope/` → 404). Part 3
-  is a single-file edit: add the minimal manifest entry → boot → gateway derives
-  and writes the two fields → commit. (Charts stays fully specified + enabled in
-  the seed as the worked teaching example on slide 15.)
+- **Seed state for the three spares (Periscope, Charts, TimescaleDB
+  Historian), since 2026-07-22: ABSENT from `services/modules.json` AND from
+  all three module env vars in the compose anchor.** On a fresh boot the
+  gateway comes up clean and RUNNING with none of them loaded
+  (`/res/embr-periscope/` → 404), and the platform-modules page does not
+  list them — that observation is now the assignment's step 1. Part 3 is a
+  two-file edit: add the three ids to `GATEWAY_MODULES_ENABLED` +
+  `ACCEPT_MODULE_LICENSES` + `ACCEPT_MODULE_CERTS` (the shared anchor, so
+  `docker compose up -d` recreates ALL gateways with the new env — which is
+  also why the later deploy-restart of test works), add the minimal manifest
+  entries → boot → gateway derives and writes the two fields → commit both
+  files.
 - **`GATEWAY_MODULES_ENABLED` force-*enables* a listed module even when the
   manifest says `onStartup: "disabled"`** — the env list wins. That's why the
   spare is kept OUT of the seed manifest entirely rather than shipped
@@ -170,10 +240,13 @@ student never types the fingerprint/hash: the gateway computes them.
   `gh run rerun <id> --failed` cleared them; don't chase ghosts.
 - Students with an EXISTING lab04-era database volume: the lab assumes a
   fresh `lab06` compose project (fresh volumes) — `db-init` only runs on
-  first init. Say it out loud at the start.
-- Slides 1A/1C say "before compose up" — this repo's deploy.yml has no
-  compose up; the insertion-point comments say "before the ship steps".
-  Align the slides or the workflow, whichever you prefer.
+  first init. Say it out loud at the start. The compose file now pins
+  `name: cicd-lab06`, so a second clone of THIS lab (a fork sitting next to the
+  course repo) no longer silently inherits the other clone's containers and
+  timescaledb volume — but a lab04 volume is still a different stack.
+- FIXED 2026-07-30: 1A/1C used to say "before compose up", which this repo's
+  deploy.yml has no step for. Both now point at the marked insertion comment
+  (`# Part 1C`), i.e. before the pre-wired "Ship secret files" step.
 - RAM: 3 gateways + DB + runner ≈ 8 GB — unchanged from Lab 04.
 
 ## B. Answer key (sketch)
@@ -187,7 +260,12 @@ exists in core** (the Reports connection's database target).
 ### Part 1
 - 1A: top-level `secrets:` block backed by `./secrets/*.txt`,
   `POSTGRES_PASSWORD_FILE` + `REPORTING_PASSWORD_FILE` on the DB service,
-  both secrets attached to `gateway-local-development`. `docker inspect` now clean.
+  and **both** secrets attached to **both** services — `gateway-local-development`
+  *and* `timescaledb`. Attaching only `postgres_password` to the DB service (what
+  the slide used to show) leaves `REPORTING_PASSWORD_FILE` pointing at a file
+  that isn't mounted: invisible on an existing volume, but on the next fresh
+  volume `db-init/` aborts on `REPORTING_PASSWORD (or _FILE) must be set` and
+  Postgres never initializes. `docker inspect` now clean.
 - 1B: file-type provider `LabSecrets` with `POSTGRES_PASSWORD` →
   `/run/secrets/postgres_password`, `REPORTING_PASSWORD` →
   `/run/secrets/reporting_password`; both connections re-pointed to
@@ -265,18 +343,29 @@ for the full verified behaviour.)
 - S3: gitleaks job with `fetch-depth: 0` (the scanner needs history, not the
   tip).
 - S4: library JAR through the pipeline (ported from the lab 07 Stephan
-  challenge). `jar-files/jar/commons-lang3-3.19.0.jar` is committed;
-  student flow: (1) Text Field + Label, label bound to the field's
-  `props.text` with a script transform doing
-  `StringUtils.reverse(value or "")` → binding errors while the class is
-  missing (Perspective bindings evaluate on the GATEWAY, so it's the
-  gateway classpath that matters, not the Designer); (2) hand-fix local:
-  `docker cp` the JAR into `/usr/local/bin/ignition/lib/core/gateway/` +
-  `docker restart` (classpath is read at boot); (3) add the "Ship library
-  JARs" step to deploy.yml after the module step (md5-compare per JAR,
-  restart only when changed — full YAML is in exercises/lab.md) AND
-  `"jar-files/**"` in `push.paths`; (4) PR → merge → verify the reverse on
-  test. Gotchas: forgetting the paths entry means a JAR-only PR never
-  deploys; a hand-copied JAR survives `docker restart` but NOT a container
-  recreate (`compose up --force-recreate` / image bump) — that fragility is
-  the argument for the pipeline step.
+  challenge). `jar-files/jar/commons-csv-1.14.1.jar` is committed —
+  **commons-csv, NOT commons-lang3**: verified live 2026-07-22 that the
+  8.3.8 image bundles `commons-lang3-3.11.jar` AND `commons-text-1.10.0.jar`
+  (plus guava, commons-io/codec/collections4/math3/…) under
+  `lib/core/common/`, on the gateway scripting classpath. With the old
+  commons-lang3 JAR the "binding errors first" premise was FALSE — the
+  import resolved from the bundled 3.11 (proven via a temp WebDev endpoint:
+  CodeSource → `lib/core/common/commons-lang3-3.11.jar`). commons-csv is
+  not bundled: import genuinely fails (`No module named csv`) until the JAR
+  lands, then resolves from `lib/core/gateway/commons-csv-1.14.1.jar` —
+  both directions verified E2E, including the local file-volume mount
+  (single-file bind mount + `docker compose up -d`, JAR on classpath after
+  the boot).
+  Student flow: (1) Text Field + Label, label bound to the field's
+  `props.text` with a script transform doing `CSVFormat.DEFAULT.parse(...)`
+  → binding errors while the class is missing (Perspective bindings
+  evaluate on the GATEWAY, so it's the gateway classpath that matters, not
+  the Designer); (2) fix local with a single-file bind mount into
+  `/usr/local/bin/ignition/lib/core/gateway/` + `docker compose up -d`
+  (classpath is read at boot); (3) paste the ready-made "Ship library JARs"
+  step from exercises/lab.md at the marked S4 HERE comment in deploy.yml
+  (md5-compare per JAR, restart only when changed) AND `"jar-files/**"` in
+  `push.paths`; (4) PR → merge → verify the CSV parse on test. Gotchas:
+  forgetting the paths entry means a JAR-only PR never deploys; the local
+  bind mount only exists where the working tree does — test/production get
+  the bytes from the pipeline, which is the point.

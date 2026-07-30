@@ -29,6 +29,20 @@ repos:
     hooks:
       - id: actionlint
 
+  # Ignition rewrites resource.json manifests with a fresh timestamp and
+  # signature whenever it touches the resource, even when nothing real changed.
+  # The textconv driver only HIDES that from `git diff`; this is what actually
+  # reverts it, staged or not, before it can enter a commit.
+  # Background: docs/resource-json-hygiene.html
+  - repo: local
+    hooks:
+      - id: clean-ignition-resource-churn
+        name: revert junk-only resource.json rewrites
+        entry: scripts/clean-ignition-resource-churn.sh --apply
+        language: script
+        files: (^|/)resource\.json$
+        pass_filenames: false
+
   # Ignition-native linter for Perspective views (naming, polling, scripts...).
   # The hook only fires on staged view.json files; --config points it at ours.
   - repo: https://github.com/bw-design-group/ignition-lint

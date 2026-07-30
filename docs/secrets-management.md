@@ -79,7 +79,7 @@ needs to store secret values inline. Two flavours matter for CI/CD:
   - **Default keys (out of the box):** fresh Ignition installations ship with
     a *default encryption key that is the same on every installation*. A
     committed embedded ciphertext therefore decrypts on ANY fresh gateway —
-    it isn't protection at all, just obfuscation. (Verified on 8.3.6: a
+    it isn't protection at all, just obfuscation. (Verified on 8.3.8: a
     ciphertext created on one gateway decrypts cleanly on a brand-new
     container.)
   - **Custom keys (`ignition-secrets-tool.sh`):** once a gateway runs its own
@@ -149,9 +149,9 @@ https://docs.inductiveautomation.com/docs/8.3/platform/security/secrets-manageme
   secret; otherwise use referenced secrets so the question never comes up
 
 Enforcement: `scripts/validate.sh` runs a secret scan (tracked files under
-`secrets/`, known values in the gateway payload, plus **gitleaks** when
-installed), and `ci.yml` runs the same scan as a required PR check. Wiring a
-full gitleaks history scan into CI is stretch S3 of the lab.
+`secrets/`, known values in the gateway payload), and `ci.yml` runs the same
+scan as a required PR check. Wiring a full **gitleaks** history scan into CI
+is stretch S3 of the lab.
 
 ## 5. How this maps onto the lab's pipeline
 

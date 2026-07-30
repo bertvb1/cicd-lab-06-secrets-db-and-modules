@@ -17,6 +17,15 @@
 # docs/secrets-management.md §4); committing them here is the lab's
 # starting-state anti-pattern, on purpose.
 
+# Flint gateway API tokens. The path is relative to the workspace root so the
+# same flint.config.json works in every clone, but the token itself is a live
+# gateway credential and is per-gateway AND per-clone — never commit it. Each
+# student generates their own in Config > Security > API Tokens and writes it
+# as `ignition_token=<keyId>:<secret>` (dotenv format, not JSON, despite the
+# .json extension the Flint docs use).
+/.flint/tokens/*
+!/.flint/tokens/*.example
+
 # Local scratch notes used during the lab
 NOTES.local.md
 
@@ -76,6 +85,12 @@ venv/
 **/config/resources/core/ignition/user-source/default/
 **/config/resources/core/ignition/user-source/opcua-module/
 **/config/resources/core/ignition/identity-provider/default/
+# ...and the temp_N identity commissioning invents when it finds the
+# security-properties policy without a matching user source (a wiped data
+# volume next to a surviving config tree — see Part 3's negative test). Same
+# admin hash, same lockout, so it is never committed either.
+**/config/resources/core/ignition/user-source/temp*/
+**/config/resources/core/ignition/identity-provider/temp*/
 
 # Scan-API tokens are generated per clone by scripts/generate-api-keys.sh
 # (values in .env, hash-only resources in each gateway's config tree). Never
@@ -106,6 +121,4 @@ venv/
 **/themes.digest.json
 **/fonts.digest.json
 **/icons.digest.json
-Notes.local.md
-PERMISSIONS-FIXES-PORTING-NOTES.md
-FEEDBACK.md
+Flint-Designer-Bridge-1.2.0-8.3/

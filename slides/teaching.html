@@ -380,7 +380,7 @@ git log -p | grep ak_live
         </div>
         <div class="callout reveal" data-step="4">
           <div class="lab" style="color:var(--blue)">Prevention beats response</div>
-          <p>Secret scanners (e.g. <b>gitleaks</b>) in <code>scripts/validate.sh</code> and CI catch the Monday-09:14 commit <b>before</b> it's pushed. You'll wire this in the assignment.<!-- TODO(infra): gitleaks not yet wired into validate.sh/ci.yml --></p>
+          <p>Secret scanners catch the Monday-09:14 commit <b>before</b> it lands: <code>scripts/validate.sh</code> scans the payload for known secret values locally, and a history scanner like <b>gitleaks</b> runs in CI — wiring that CI job is a stretch goal in the assignment.</p>
         </div>
       </div>
     </div>
@@ -711,7 +711,7 @@ jobs:
       <div>
         <div class="callout" style="margin-top:0">
           <div class="lab" style="color:var(--blue)">Enforcement, not vigilance</div>
-          <p>Humans forget; hooks and CI don't. This repo's <code>scripts/validate.sh</code> runs a <b>secret scan</b> (gitleaks) and <code>ci.yml</code> repeats it on every PR: a leaked key fails the build before a reviewer ever sees it.<!-- TODO(infra): gitleaks wiring pending --></p>
+          <p>Humans forget; hooks and CI don't. This repo's <code>scripts/validate.sh</code> runs a <b>secret scan</b> (tracked files under <span class="mono">secrets/</span>, known values in the payload) and <code>ci.yml</code> repeats it on every PR: a leaked key fails the build before a reviewer ever sees it. A full <b>gitleaks</b> history scan is the assignment's stretch S3, in CI.</p>
         </div>
         <div class="code" style="margin-top:14px"><pre><span class="cm"># .gitignore: the relevant lines</span>
 .env
@@ -719,8 +719,8 @@ secrets/*
 !secrets/*.example
 *.gwbk
 
-<span class="cm"># validate.sh (excerpt)</span>
-gitleaks detect --source . <span class="cm"># zero findings = green</span></pre></div>
+<span class="cm"># validate.sh — the secret scan</span>
+./scripts/validate.sh <span class="cm"># no secrets where they shouldn't be = green</span></pre></div>
       </div>
     </div>
   </div>
@@ -1029,7 +1029,7 @@ ACCEPT_MODULE_CERTS:      <span class="cmd2">…, com.mussonindustrial.embr.char
           <li><span class="d"></span><span>Java libraries your gateway scripts call. Our image-based production repo ships <code>amqp-client</code> (RabbitMQ) and an SMB client, with their <b>pinned dependency JARs</b> alongside.</span></li>
           <li><span class="d"></span><span>They live in <code>modules/jar/</code> in the repo, with a README that records <b>where each JAR came from</b> (the Maven Central command), and get copied to <code>lib/core/gateway/</code>. Like modules, the classpath is read at <b>boot</b>: shipping a JAR means a restart.</span></li>
           <li><span class="d"></span><span><b>Pin the versions, commit the binaries.</b> The gateway has no package manager: your repo is the lockfile.</span></li>
-          <li><span class="d"></span><span>This lab's repo carries one: <code>jar-files/jar/commons-lang3-3.19.0.jar</code>. Once it is on the classpath, any gateway-scoped script (Perspective bindings run on the gateway) can call it: <span class="mono">from org.apache.commons.lang3 import StringUtils</span>, then <span class="mono">StringUtils.reverse("Ignition")</span>. Stretch S4 ships it through the pipeline and puts it on a screen.</span></li>
+          <li><span class="d"></span><span>This lab's repo carries one: <code>jar-files/jar/commons-csv-1.14.1.jar</code> — picked because the Ignition image does <b>not</b> bundle it (commons-lang3, commons-text and guava it does, so those import fine without you shipping anything). Once it is on the classpath, any gateway-scoped script (Perspective bindings run on the gateway) can call it: <span class="mono">from org.apache.commons.csv import CSVFormat</span>. Stretch S4 ships it through the pipeline and puts it on a screen.</span></li>
         </ul>
       </div>
     </div>
@@ -1055,7 +1055,7 @@ ACCEPT_MODULE_CERTS:      <span class="cmd2">…, com.mussonindustrial.embr.char
     <div class="title" style="max-width:28ch;color:#fff">Next: move a secret up the ladder, ship a schema change, and deploy a module</div>
     <ul class="checks" style="max-width:940px;margin-top:22px">
       <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>We-do.</b> The leak-is-forever demo live in a scratch repo · one credential climbing the ladder: <span class="mono">.env</span> → secret file → referenced secret in the gateway · a migration written as an up/down pair and applied with <span class="mono">migrate up</span> · a walk through a real production pipeline to see all of it (and one flaw) live.</span></li>
-      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>You-do (breakout rooms).</b> One warm-up together (deploy to develop and production, and find both db-connections Faulted), then Part 1: hook up a secret for the db-connection: secret files, a file-based provider, referenced secrets, and a full feature-branch → PR → pipeline deploy that fixes develop · Part 2: write migration <span class="mono">0002</span> and watch the pipeline migrate test before it ships your screen · Part 3: add a third-party module and prove a fresh gateway boots complete.</span></li>
+      <li><span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span><b>You-do (breakout rooms).</b> One warm-up together (deploy to test and production, and find both db-connections Faulted), then Part 1: hook up a secret for the db-connection: secret files, a file-based provider, referenced secrets, and a full feature-branch → PR → pipeline deploy that fixes test · Part 2: write migration <span class="mono">0002</span> and watch the pipeline migrate test before it ships your screen · Part 3: add a third-party module and prove a fresh gateway boots complete.</span></li>
     </ul>
   </div>
 
