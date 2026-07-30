@@ -82,16 +82,49 @@ install_git_hooks() {
     local source_dir="$PROJECT_ROOT/scripts/git-hooks"
     [ -d "$source_dir" ] || return 0
     mkdir -p "$repo_hooks_dir"
-    for hook in post-merge post-checkout post-rewrite; do
-        local target="$repo_hooks_dir/$hook"
-        ln -sf "$source_dir/$hook" "$target"
+    # Clones set up before post-merge/post-rewrite were dropped still have
+    # symlinks to the deleted files; git errors on every merge/rebase until
+    # they are removed.
+    for stale in post-merge post-rewrite; do
+        local link="$repo_hooks_dir/$stale"
+        if [ -L "$link" ] && [ ! -e "$link" ]; then
+            rm -f "$link"
+        fi
     done
+    # post-checkout only. Git keeps the skip-worktree bit across merge, rebase,
+    # amend, reset --hard and stash, so hooks on those events had nothing to do.
+    # The bit is only lost when the file leaves the index and comes back, which
+    # is a checkout.
+    ln -sf "$source_dir/post-checkout" "$repo_hooks_dir/post-checkout"
     if [ -x "$source_dir/skip-worktree-ignition-resources" ]; then
         "$source_dir/skip-worktree-ignition-resources" || true
     fi
 }
 
 install_git_hooks
+
+# ---- pre-commit framework ---------------------------------------------------
+# Installs .git/hooks/pre-commit from .pre-commit-config.yaml. That config holds
+# the linters CI runs AND the hook that reverts junk-only resource.json
+# rewrites, so without this the churn cleaner never runs on its own and Ignition
+# metadata can still reach a commit.
+install_pre_commit_hooks() {
+    if ! command -v pre-commit >/dev/null 2>&1; then
+        echo -e "${YELLOW}pre-commit is not installed, so resource.json churn will NOT be${NC}"
+        echo -e "${YELLOW}reverted automatically and the linters CI runs stay local-only:${NC}"
+        echo "  pip install pre-commit && pre-commit install"
+        echo ""
+        return 0
+    fi
+    if pre-commit install >/dev/null 2>&1; then
+        echo -e "${GREEN}pre-commit hooks installed (linters + resource.json churn cleaner).${NC}"
+    else
+        echo -e "${YELLOW}pre-commit is installed but 'pre-commit install' failed; run it by hand.${NC}"
+    fi
+    echo ""
+}
+
+install_pre_commit_hooks
 
 # ---- Git diff driver --------------------------------------------------------
 # .gitattributes routes resource.json through this textconv normalizer so

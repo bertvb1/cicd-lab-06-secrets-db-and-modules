@@ -6,6 +6,9 @@ Day 4 (morning) of the [CI/CD for Ignition Masterclass](https://github.com/mustr
 
 This lab reuses Lab 04's file-based deploy stack (three gateways, bundled self-hosted runner, `docker cp` + hot scan). What's new is everything the config files *can't* say: password values, schema state, module binaries.
 
+
+> **How resource.json stays clean:** Ignition restamps these manifests constantly. [`docs/resource-json-hygiene.html`](./docs/resource-json-hygiene.html) explains what the junk is, the two tools that deal with it, and why an empty `git diff` does not mean a clean file.
+
 ## Prerequisites
 
 - A fork of this repo, **with Actions enabled** — the warm-up, Parts 1C–1D and 2B are pipeline work (same setup as Lab 04)
